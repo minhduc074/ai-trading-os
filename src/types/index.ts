@@ -278,6 +278,7 @@ export interface TradingConfig {
   
   // AI
   aiProvider: 'local' | 'deepseek' | 'qwen';
+  localAiPlatform: 'deepseek' | 'chatgpt';
   historicalCyclesCount: number;
 }
 
