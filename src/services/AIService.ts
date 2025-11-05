@@ -75,16 +75,26 @@ export class AIDecisionEngine {
     if (!this.localUrl || this.isLoggedIn) return;
     
     try {
-      const response = await axios.post(`${this.localUrl}/api/chat/login`, {
+      const payload: Record<string, any> = {
         platform: this.localPlatform,
-        email: this.localEmail,
-        password: this.localPassword,
         session_id: this.sessionId,
-      }, { timeout: 5000 });
+      };
+
+      if (this.localEmail) {
+        payload.email = this.localEmail;
+      }
+
+      if (this.localPassword) {
+        payload.password = this.localPassword;
+      }
+
+      console.log(`[Local AI] Initializing session (${this.localPlatform}) at ${this.localUrl}`);
+
+  const response = await axios.post(`${this.localUrl}/api/chat/login`, payload, { timeout: 20000 });
       
       if (response.status === 200) {
         this.isLoggedIn = true;
-        console.log('Local AI session initialized');
+        console.log(`Local AI session initialized: ${response.data?.message || 'login/handshake successful'}`);
       }
     } catch (error: any) {
       console.warn(`Local AI login attempt: ${error.message}`);
@@ -233,61 +243,84 @@ export class AIDecisionEngine {
   }
 
   private getSystemPrompt(includeChainOfThought: boolean): string {
-    if (!includeChainOfThought) {
-      return `You are an expert cryptocurrency trading AI. Analyze the provided context and respond with a JSON array of trading decisions only. Do not include any additional commentary, explanation, or text outside of the JSON array. Each decision must match this shape:
-
-[
-  {
-    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",
-    "symbol": "BTCUSDT",
-    "quantity": 0.1,
-    "leverage": 10,
-    "stopLoss": 42000,
-    "takeProfit": 46000,
-    "reasoning": "Brief justification",
-    "confidence": 0.75
-  }
-]
-
-All numeric fields must be numbers. Return an empty array if no trades are recommended.`;
+    if (this.provider === 'local') {
+      return [
+        'You are an expert cryptocurrency trading AI.',
+        'Respond with ONLY a JSON array of trading decisions using this shape:',
+        '[',
+        '  {',
+        '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
+        '    "symbol": "BTCUSDT",',
+        '    "quantity": 0.1,',
+        '    "leverage": 10,',
+        '    "stopLoss": 42000,',
+        '    "takeProfit": 46000,',
+        '    "reasoning": "Brief justification",',
+        '    "confidence": 0.75',
+        '  }',
+        ']',
+        'All numeric fields must be numbers.',
+        'Return an empty array when no trade is recommended.',
+      ].join('\n');
     }
 
-    return `You are an expert cryptocurrency trading AI with advanced technical analysis capabilities. Your goal is to maximize profits while managing risk prudently.
+    if (!includeChainOfThought) {
+      return [
+        'You are an expert cryptocurrency trading AI.',
+        'Analyze the context and output ONLY a JSON array of trading decisions.',
+        'Each decision must use this structure:',
+        '[',
+        '  {',
+        '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
+        '    "symbol": "BTCUSDT",',
+        '    "quantity": 0.1,',
+        '    "leverage": 10,',
+        '    "stopLoss": 42000,',
+        '    "takeProfit": 46000,',
+        '    "reasoning": "Brief justification",',
+        '    "confidence": 0.75',
+        '  }',
+        ']',
+        'Provide no text outside of the JSON array.',
+        'Return [] if no trades are recommended.',
+      ].join('\n');
+    }
 
-CRITICAL RULES:
-1. Always provide Chain of Thought reasoning before decisions
-2. Consider historical performance to avoid repeating mistakes
-3. Analyze complete price sequences, not just latest values
-4. Respect risk management rules (stop-loss to take-profit ratio ≥ 1:2)
-5. Never open duplicate positions (same symbol + direction)
-6. Be conservative when historical win rate is low
-7. Be more aggressive when recent performance is strong
-
-ANALYSIS FRAMEWORK:
-- Multi-timeframe: Combine 3min (short-term) + 4hour (trend) analysis
-- Technical indicators: RSI, MACD, EMA crossovers, ATR
-- Volume analysis: Surge detection, accumulation patterns
-- Market sentiment: Open interest changes, funding rates
-- Historical patterns: Learn from past winning/losing trades
-
-OUTPUT FORMAT:
-First, provide detailed Chain of Thought reasoning (2-3 paragraphs).
-Then, output decisions in this JSON array format:
-
-[
-  {
-    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",
-    "symbol": "BTCUSDT",
-    "quantity": 0.1,
-    "leverage": 10,
-    "stopLoss": 42000,
-    "takeProfit": 46000,
-    "reasoning": "Brief reason for this specific decision",
-    "confidence": 0.75
-  }
-]
-
-If no good opportunities, return: [{"action": "wait", "reasoning": "Why waiting is better"}]`;
+    return [
+      'You are an expert cryptocurrency trading AI with advanced technical analysis capabilities.',
+      'Goals: maximize profit, control risk, learn from historical performance.',
+      '',
+      'Critical rules:',
+      '1. Provide Chain of Thought reasoning before the JSON decisions.',
+      '2. Reference historical performance to avoid repeating mistakes.',
+      '3. Evaluate complete price sequences, not just latest values.',
+      '4. Enforce stop-loss to take-profit ratio ≥ 1:2.',
+      '5. Avoid duplicate positions (same symbol + direction).',
+      '6. Stay conservative when win rate < 50%; increase aggressiveness when > 65%.',
+      '',
+      'Analysis toolkit:',
+      '- Multi-timeframe synthesis: 3min (short-term) + 4h (trend).',
+      '- Technical indicators: RSI, MACD, EMA crossovers, ATR.',
+      '- Volume and sentiment: spikes, accumulation, funding, open interest.',
+      '- Historical pattern recognition: contrast recent wins vs losses.',
+      '',
+      'Output format:',
+      '1. Provide detailed Chain of Thought reasoning (2-3 paragraphs).',
+      '2. Follow with the JSON array of decisions formatted as:',
+      '[',
+      '  {',
+      '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
+      '    "symbol": "BTCUSDT",',
+      '    "quantity": 0.1,',
+      '    "leverage": 10,',
+      '    "stopLoss": 42000,',
+      '    "takeProfit": 46000,',
+      '    "reasoning": "Brief reason for this specific decision",',
+      '    "confidence": 0.75',
+      '  }',
+      ']',
+      'Return [{"action": "wait", "reasoning": "Why waiting is better"}] when no trades meet criteria.',
+    ].join('\n');
   }
 
   private buildPrompt(
@@ -400,7 +433,9 @@ If no good opportunities, return: [{"action": "wait", "reasoning": "Why waiting 
     // 4. New Opportunities
     prompt += `## 4. Market Opportunities (${marketData.length} Candidates)\n\n`;
     
-    for (const data of marketData.slice(0, 15)) { // Limit to top 15 to avoid token limits
+  const marketDataLimit = this.provider === 'local' ? marketData.length : 15;
+
+  for (const data of marketData.slice(0, marketDataLimit)) { // Limit entries for remote AI to avoid token limits
       prompt += `### ${data.symbol}\n`;
       prompt += `- Current Price: $${data.currentPrice.toFixed(2)} (24h: ${data.priceChangePercent24h >= 0 ? '+' : ''}${data.priceChangePercent24h.toFixed(2)}%)\n`;
       prompt += `- Volume 24h: $${(data.volume24h / 1000000).toFixed(2)}M\n`;

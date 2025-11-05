@@ -379,11 +379,11 @@ export class TradingEngine {
       // Use normalized quantity for downstream checks/execution
       decision.quantity = normalizedQuantity;
       decision.leverage = leverage;
-      const finalQuantity = normalizedQuantity;
+      let finalQuantity = normalizedQuantity;
       const finalLeverage = leverage;
 
       // Risk checks
-      const riskCheck = await this.riskManager.checkNewPosition(
+      let riskCheck = await this.riskManager.checkNewPosition(
         decision.symbol,
         side,
         finalQuantity,
@@ -393,14 +393,35 @@ export class TradingEngine {
       );
 
       if (!riskCheck.allowed) {
-        console.log(`   ⚠️  Open blocked: ${riskCheck.reason}`);
-        results.push({
-          decision,
-          success: false,
-          error: riskCheck.reason,
-          timestamp: Date.now(),
-        });
-        continue;
+        const fallbackQuantity = riskCheck.adjustedQuantity;
+
+        if (fallbackQuantity && fallbackQuantity > 0 && fallbackQuantity < finalQuantity) {
+          console.log(`   ⚠️  Risk warning: ${riskCheck.reason}`);
+          console.log(`   ↪ Retrying with 30% size (${fallbackQuantity}) to remain within margin limits`);
+
+          finalQuantity = fallbackQuantity;
+          decision.quantity = finalQuantity;
+
+          riskCheck = await this.riskManager.checkNewPosition(
+            decision.symbol,
+            side,
+            finalQuantity,
+            finalLeverage,
+            currentPrice,
+            accountInfo
+          );
+        }
+
+        if (!riskCheck.allowed) {
+          console.log(`   ⚠️  Open blocked: ${riskCheck.reason}`);
+          results.push({
+            decision,
+            success: false,
+            error: riskCheck.reason,
+            timestamp: Date.now(),
+          });
+          continue;
+        }
       }
 
       // Validate SL/TP
