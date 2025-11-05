@@ -66,6 +66,8 @@ export async function startDashboardServer(
   // Broadcast updates every 5 seconds
   setInterval(() => {
     const status = tradingEngine.getStatus();
+    // console.log('   Broadcasting status - accountInfo:', !!status.accountInfo, 
+    //             'positions:', status.accountInfo?.positions?.length || 0);
     
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
@@ -91,6 +93,7 @@ function getDashboardHTML(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Trading OS v2.0.2 - Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -355,6 +358,20 @@ function getDashboardHTML(): string {
     </div>
 
     <div class="status-card">
+      <h2>📈 Performance Charts</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px; font-size: 16px;">💰 Equity per Cycle</h3>
+          <canvas id="equityChart" style="max-height: 250px;"></canvas>
+        </div>
+        <div>
+          <h3 style="color: #667eea; margin-bottom: 10px; font-size: 16px;">🎯 Decisions per Cycle</h3>
+          <canvas id="decisionsChart" style="max-height: 250px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-card">
       <h2>� Open Positions</h2>
       <div id="openPositionsTable" style="overflow-x: auto;">
         <p style="color: #666;">No open positions...</p>
@@ -394,6 +411,8 @@ function getDashboardHTML(): string {
   <script>
     let ws;
     let startTime = Date.now();
+    let equityChart = null;
+    let decisionsChart = null;
 
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -419,6 +438,9 @@ function getDashboardHTML(): string {
           const message = JSON.parse(event.data);
           
           if (message.type === 'status' || message.type === 'update') {
+            console.log('Received data:', message.data);
+            console.log('AccountInfo:', message.data.accountInfo);
+            console.log('Positions:', message.data.accountInfo?.positions);
             updateDashboard(message.data);
           }
         } catch (error) {
@@ -463,6 +485,7 @@ function getDashboardHTML(): string {
       // Account Balance
       if (data.accountInfo) {
         const acc = data.accountInfo;
+        console.log('Processing accountInfo, positions count:', acc.positions?.length || 0);
         document.getElementById('totalEquity').textContent = '$' + (acc.totalEquity || 0).toFixed(2);
         document.getElementById('availableBalance').textContent = '$' + (acc.availableBalance || 0).toFixed(2);
         
@@ -511,6 +534,9 @@ function getDashboardHTML(): string {
         }
       }
 
+      // Update charts
+      updateCharts(data.cycleHistory || []);
+
       // Recent Actions
       if (data.recentActions && data.recentActions.length > 0) {
         const actionsHtml = data.recentActions
@@ -541,6 +567,107 @@ function getDashboardHTML(): string {
         'wait': '<span style="background: #444; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">WAIT</span>',
       };
       return badges[action] || '<span style="background: #888; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">' + action.toUpperCase() + '</span>';
+    }
+
+    function updateCharts(cycleHistory) {
+      if (!cycleHistory || cycleHistory.length === 0) return;
+
+      const labels = cycleHistory.map(h => 'Cycle ' + h.cycle);
+      const equityData = cycleHistory.map(h => h.equity);
+      const decisionsData = cycleHistory.map(h => h.decisions);
+
+      // Equity Chart
+      if (equityChart) {
+        equityChart.data.labels = labels;
+        equityChart.data.datasets[0].data = equityData;
+        equityChart.update('none');
+      } else {
+        const ctx1 = document.getElementById('equityChart').getContext('2d');
+        equityChart = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Equity ($)',
+              data: equityData,
+              borderColor: '#10dc60',
+              backgroundColor: 'rgba(16, 220, 96, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff'
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#888', maxRotation: 45, minRotation: 45 },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+              },
+              y: {
+                ticks: { color: '#888' },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+              }
+            }
+          }
+        });
+      }
+
+      // Decisions Chart
+      if (decisionsChart) {
+        decisionsChart.data.labels = labels;
+        decisionsChart.data.datasets[0].data = decisionsData;
+        decisionsChart.update('none');
+      } else {
+        const ctx2 = document.getElementById('decisionsChart').getContext('2d');
+        decisionsChart = new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Decisions',
+              data: decisionsData,
+              backgroundColor: 'rgba(102, 126, 234, 0.8)',
+              borderColor: '#667eea',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff'
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#888', maxRotation: 45, minRotation: 45 },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+              },
+              y: {
+                ticks: { color: '#888', stepSize: 1 },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
     }
 
     // Initial connection

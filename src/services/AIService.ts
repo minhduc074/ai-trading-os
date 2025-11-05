@@ -370,7 +370,7 @@ If no good opportunities, return: [{"action": "wait", "reasoning": "Why waiting 
     // 4. New Opportunities
     prompt += `## 4. Market Opportunities (${marketData.length} Candidates)\n\n`;
     
-    for (const data of marketData.slice(0, 15)) { // Limit to top 15 to avoid token limits
+    for (const data of marketData) {
       prompt += `### ${data.symbol}\n`;
       prompt += `- Current Price: $${data.currentPrice.toFixed(2)} (24h: ${data.priceChangePercent24h >= 0 ? '+' : ''}${data.priceChangePercent24h.toFixed(2)}%)\n`;
       prompt += `- Volume 24h: $${(data.volume24h / 1000000).toFixed(2)}M\n`;

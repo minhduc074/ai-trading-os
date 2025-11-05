@@ -37,6 +37,7 @@ export class TradingEngine {
   private intervalId?: NodeJS.Timeout;
   private lastAccountInfo?: any;
   private recentActions: Array<{timestamp: number; action: string; symbol?: string; details?: string}> = [];
+  private cycleHistory: Array<{cycle: number; equity: number; decisions: number; timestamp: number}> = [];
 
   constructor(
     trader: ITrader,
@@ -222,6 +223,18 @@ export class TradingEngine {
 
       // Update equity snapshot
       const finalAccountInfo = await this.trader.getAccountInfo();
+      
+      // Track cycle history for dashboard
+      this.cycleHistory.push({
+        cycle: this.cycleNumber,
+        equity: finalAccountInfo.totalEquity,
+        decisions: decisions.length,
+        timestamp: Date.now()
+      });
+      // Keep only last 100 cycles
+      if (this.cycleHistory.length > 100) {
+        this.cycleHistory.shift();
+      }
       await this.performanceTracker.recordEquitySnapshot(
         finalAccountInfo.totalEquity,
         finalAccountInfo.dailyPnl || 0,
@@ -427,6 +440,7 @@ export class TradingEngine {
     traderId: string;
     accountInfo?: any;
     recentActions: Array<{timestamp: number; action: string; symbol?: string; details?: string}>;
+    cycleHistory: Array<{cycle: number; equity: number; decisions: number; timestamp: number}>;
   } {
     return {
       isRunning: this.isRunning,
@@ -434,6 +448,7 @@ export class TradingEngine {
       traderId: this.traderId,
       accountInfo: this.lastAccountInfo,
       recentActions: this.recentActions.slice(-20), // Last 20 actions
+      cycleHistory: this.cycleHistory.slice(-50), // Last 50 cycles
     };
   }
 }

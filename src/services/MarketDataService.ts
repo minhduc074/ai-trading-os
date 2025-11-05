@@ -22,23 +22,22 @@ export class MarketDataService {
     return [
       'BTCUSDT',
       'ETHUSDT',
-      'SOLUSDT',
-      'BNBUSDT',
       'XRPUSDT',
-      'ADAUSDT',
+      'BNBUSDT',
+      'SOLUSDT',
       'DOGEUSDT',
-      'DOTUSDT',
-      'AVAXUSDT',
+      'ADAUSDT',
       'LINKUSDT',
-      'UNIUSDT',
-      'ATOMUSDT',
-      'LTCUSDT',
-      'NEARUSDT',
-      'APTUSDT',
-      'ARBUSDT',
-      'OPUSDT',
-      'INJUSDT',
+      'BCHUSDT',
+      'XLMUSDT',
       'SUIUSDT',
+      'HBARUSDT',
+      'AVAXUSDT',
+      'LTCUSDT',
+      'DOTUSDT',
+      'UNIUSDT',
+      'AAVEUSDT',
+      'NEARUSDT',
     ];
   }
 
@@ -51,19 +50,30 @@ export class MarketDataService {
     // - AI500 API for top performing coins
     // - Exchange API for top open interest coins
     
-    // For now, return extended default pool
+    // Extended pool with all major coins
     const defaultPool = this.getDefaultCoinPool();
     const additionalCoins = [
-      'SEIUSDT',
-      'TIAUSDT',
-      'WLDUSDT',
-      'RNDRUSDT',
-      'PENDLEUSDT',
-      'ARUSDT',
-      'STXUSDT',
+      'ETCUSDT',
+      'POLUSDT',
+      'ALGOUSDT',
+      'VETUSDT',
+      'ATOMUSDT',
+      'JUPUSDT',
+      'RENDERUSDT',
+      'OPUSDT',
+      'CRVUSDT',
+      'GRTUSDT',
+      'IOTAUSDT',
+      'FETUSDT',
+      'ENSUSDT',
+      'SANDUSDT',
       'THETAUSDT',
       'GALAUSDT',
-      'FETUSDT',
+      'LPTUSDT',
+      'RVNUSDT',
+      'ZILUSDT',
+      'SUSHIUSDT',
+      'ONEUSDT',
     ];
     
     return [...new Set([...defaultPool, ...additionalCoins])];
