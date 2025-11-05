@@ -47,7 +47,7 @@ export class BinanceTrader extends BaseTrader {
       },
     });
 
-    this.log(`Initialized ${this.name} at ${this.baseUrl}`);
+  this.log(`Initialized ${this.name} at ${this.baseUrl}`);
   }
 
   // Sync time with server
@@ -78,6 +78,23 @@ export class BinanceTrader extends BaseTrader {
       .createHmac('sha256', this.apiSecret)
       .update(queryString)
       .digest('hex');
+  }
+
+  private getPrecision(value: number): number {
+    if (!Number.isFinite(value) || value === 0) {
+      return 0;
+    }
+
+    const text = value.toString();
+    if (text.includes('e-')) {
+      const parts = text.split('e-');
+      const baseDecimals = parts[0].includes('.') ? parts[0].split('.')[1].length : 0;
+      const exponentValue = parseInt(parts[1], 10);
+      return exponentValue + baseDecimals;
+    }
+
+    const decimalPart = text.split('.')[1];
+    return decimalPart ? decimalPart.length : 0;
   }
 
   // Get exchange info (cached)
@@ -112,16 +129,23 @@ export class BinanceTrader extends BaseTrader {
       throw new Error(`Symbol ${symbol} not found`);
     }
 
-    const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
+    const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'MARKET_LOT_SIZE')
+      || symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
     if (!lotSizeFilter) {
       return quantity.toFixed(3);
     }
 
     const stepSize = parseFloat(lotSizeFilter.stepSize);
-    const precision = stepSize.toString().split('.')[1]?.length || 0;
-    
-    // Round down to nearest step size
-    const roundedQty = Math.floor(quantity / stepSize) * stepSize;
+    const minQty = parseFloat(lotSizeFilter.minQty || '0');
+    const precision = this.getPrecision(stepSize);
+
+    const steps = Math.floor(quantity / stepSize + 1e-9);
+    let roundedQty = steps * stepSize;
+
+    if (minQty > 0 && roundedQty < minQty) {
+      roundedQty = minQty;
+    }
+
     return roundedQty.toFixed(precision);
   }
 
