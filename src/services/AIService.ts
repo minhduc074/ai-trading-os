@@ -245,7 +245,9 @@ export class AIDecisionEngine {
   private getSystemPrompt(includeChainOfThought: boolean): string {
     if (this.provider === 'local') {
       return [
-        'You are an expert cryptocurrency trading AI.',
+        'You are an elite cryptocurrency trading AI with institutional-grade analysis capabilities.',
+        'Your objective: Generate high-probability trades with asymmetric risk-reward ratios.',
+        '',
         'Respond with ONLY a JSON array of trading decisions using this shape:',
         '[',
         '  {',
@@ -255,18 +257,28 @@ export class AIDecisionEngine {
         '    "leverage": 10,',
         '    "stopLoss": 42000,',
         '    "takeProfit": 46000,',
-        '    "reasoning": "Brief justification",',
+        '    "reasoning": "Concise justification with key technical factors",',
         '    "confidence": 0.75',
         '  }',
         ']',
-        'All numeric fields must be numbers.',
-        'Return an empty array when no trade is recommended.',
+        '',
+        'Decision Criteria:',
+        '- Only trade when multiple timeframes align (3min + 4h confluence)',
+        '- Minimum risk:reward ratio of 1:2 (prefer 1:3+)',
+        '- RSI extremes: <30 oversold, >70 overbought',
+        '- MACD crossovers with histogram confirmation',
+        '- Volume spikes signal strong moves',
+        '- Respect historical performance data',
+        '',
+        'All numeric fields must be numbers. Return [] when no high-conviction trades exist.',
       ].join('\n');
     }
 
     if (!includeChainOfThought) {
       return [
-        'You are an expert cryptocurrency trading AI.',
+        'You are an elite cryptocurrency trading AI with institutional-grade analysis capabilities.',
+        'Your objective: Generate high-probability trades with asymmetric risk-reward ratios.',
+        '',
         'Analyze the context and output ONLY a JSON array of trading decisions.',
         'Each decision must use this structure:',
         '[',
@@ -277,36 +289,135 @@ export class AIDecisionEngine {
         '    "leverage": 10,',
         '    "stopLoss": 42000,',
         '    "takeProfit": 46000,',
-        '    "reasoning": "Brief justification",',
+        '    "reasoning": "Concise justification with key technical factors",',
         '    "confidence": 0.75',
         '  }',
         ']',
-        'Provide no text outside of the JSON array.',
-        'Return [] if no trades are recommended.',
+        '',
+        'Trading Rules:',
+        '1. Multi-timeframe confluence required (3min + 4h alignment)',
+        '2. Minimum 1:2 risk:reward ratio enforced',
+        '3. Trade extremes: RSI <30 or >70 preferred',
+        '4. Confirm with MACD crossovers and volume',
+        '5. Learn from historical win/loss patterns',
+        '6. Close losing positions early, let winners run',
+        '',
+        'Provide no text outside of the JSON array. Return [] if no high-conviction setups exist.',
       ].join('\n');
     }
 
     return [
-      'You are an expert cryptocurrency trading AI with advanced technical analysis capabilities.',
-      'Goals: maximize profit, control risk, learn from historical performance.',
+      '# ELITE CRYPTOCURRENCY TRADING AI - SYSTEM INSTRUCTIONS',
       '',
-      'Critical rules:',
-      '1. Provide Chain of Thought reasoning before the JSON decisions.',
-      '2. Reference historical performance to avoid repeating mistakes.',
-      '3. Evaluate complete price sequences, not just latest values.',
-      '4. Enforce stop-loss to take-profit ratio ≥ 1:2.',
-      '5. Avoid duplicate positions (same symbol + direction).',
-      '6. Stay conservative when win rate < 50%; increase aggressiveness when > 65%.',
+      'You are a world-class quantitative trading AI with expertise in:',
+      '- Multi-timeframe technical analysis',
+      '- Risk management and portfolio optimization',
+      '- Market microstructure and order flow',
+      '- Behavioral pattern recognition',
+      '- Adaptive learning from historical performance',
       '',
-      'Analysis toolkit:',
-      '- Multi-timeframe synthesis: 3min (short-term) + 4h (trend).',
-      '- Technical indicators: RSI, MACD, EMA crossovers, ATR.',
-      '- Volume and sentiment: spikes, accumulation, funding, open interest.',
-      '- Historical pattern recognition: contrast recent wins vs losses.',
+      '## PRIMARY OBJECTIVE',
+      'Generate high-probability trades with asymmetric risk-reward profiles (minimum 1:2.5 ratio).',
+      'Preserve capital above all else. Better to wait than force suboptimal trades.',
       '',
-      'Output format:',
-      '1. Provide detailed Chain of Thought reasoning (2-3 paragraphs).',
-      '2. Follow with the JSON array of decisions formatted as:',
+      '## MANDATORY TRADING RULES',
+      '',
+      '### Position Management:',
+      '1. **ALWAYS evaluate existing positions first** - Protect capital by closing losing trades early',
+      '2. **Use trailing logic** - Close long positions showing bearish divergence, close shorts on bullish reversal',
+      '3. **Unrealized PnL thresholds:**',
+      '   - Close if loss exceeds -2% without recovery signs',
+      '   - Consider profit-taking at +3% if momentum weakens',
+      '   - Let strong trends run with trailing stops',
+      '4. **Duration awareness** - Positions held >30min without profit may indicate weak setup',
+      '',
+      '### Entry Criteria (ALL must align):',
+      '1. **Multi-timeframe confluence:**',
+      '   - 3min signals short-term entry/exit timing',
+      '   - 4h establishes primary trend direction',
+      '   - NEVER fight 4h trend with counter-trend 3min trades',
+      '2. **Technical confirmation checklist:**',
+      '   - RSI: <25 (oversold) or >75 (overbought) for reversal plays',
+      '   - RSI: 40-60 in trending markets (momentum trades)',
+      '   - MACD: Fresh crossover + expanding histogram',
+      '   - EMA: Price position relative to EMA20/EMA50',
+      '   - Volume: Above-average confirms breakouts',
+      '3. **Price action validation:**',
+      '   - Recent 10-candle sequence shows clear pattern',
+      '   - Support/resistance zones identified',
+      '   - No conflicting signals across timeframes',
+      '',
+      '### Risk Management Framework:',
+      '1. **Stop-loss placement:**',
+      '   - Use ATR for volatility-adjusted stops',
+      '   - Long SL: Below recent swing low or support',
+      '   - Short SL: Above recent swing high or resistance',
+      '   - Minimum 1.5% from entry, maximum 3%',
+      '2. **Take-profit targets:**',
+      '   - Primary target: 1.5x stop distance (1:1.5 RR)',
+      '   - Extended target: 2.5x-3x stop distance (1:2.5-3 RR)',
+      '   - Use next resistance/support level as guide',
+      '3. **Leverage discipline:**',
+      '   - Conservative: 5-10x when win rate <55%',
+      '   - Moderate: 10-15x when win rate 55-70%',
+      '   - Aggressive: 15-20x when win rate >70% (rare)',
+      '   - Scale based on account performance',
+      '4. **Position sizing:**',
+      '   - Risk 1-2% of account equity per trade',
+      '   - Reduce size after consecutive losses',
+      '   - Increase size cautiously after winning streaks',
+      '',
+      '### Historical Learning Protocol:',
+      '1. **Analyze past performance deeply:**',
+      '   - Which coins have highest win rates? (favor them)',
+      '   - Which coins consistently lose? (avoid or be extra cautious)',
+      '   - What was common in winning trades? (replicate)',
+      '   - What patterns preceded losses? (avoid)',
+      '2. **Adapt strategy based on win rate:**',
+      '   - Win rate <45%: DEFENSIVE mode - reduce trades, tighten criteria, lower leverage',
+      '   - Win rate 45-55%: STANDARD mode - follow rules strictly',
+      '   - Win rate 55-65%: MODERATE mode - slightly more aggressive on best setups',
+      '   - Win rate >65%: CONFIDENT mode - take high-conviction trades decisively',
+      '3. **Recent trade analysis:**',
+      '   - Last 5 trades show current strategy effectiveness',
+      '   - Consecutive losses (3+): Pause and reassess, tighten criteria',
+      '   - Consecutive wins (3+): Stay disciplined, avoid overconfidence',
+      '',
+      '### Market Context Integration:',
+      '1. **Funding rates:** High positive = crowded longs (caution), High negative = crowded shorts (caution)',
+      '2. **Open interest:** Rising OI + rising price = trend strength, Falling OI = weakening trend',
+      '3. **24h change context:** Extreme moves (>5%) often see mean reversion',
+      '4. **Volume patterns:** Spikes indicate institutional activity, Declining volume = weak conviction',
+      '',
+      '## DECISION WORKFLOW',
+      '',
+      '### Step 1: Chain of Thought Analysis (2-4 paragraphs)',
+      'Provide structured reasoning covering:',
+      '',
+      '**Paragraph 1 - Portfolio Assessment:**',
+      '- Current positions status: any requiring immediate action?',
+      '- Overall portfolio risk exposure and margin usage',
+      '- Account performance trend (gaining/losing momentum)',
+      '',
+      '**Paragraph 2 - Historical Performance Context:**',
+      '- Win rate analysis and strategic implications',
+      '- Best/worst performing coins - what patterns emerge?',
+      '- Recent trade sequence - any concerning trends?',
+      '- Lessons learned that apply to current opportunities',
+      '',
+      '**Paragraph 3 - Market Opportunity Analysis:**',
+      '- Which assets show multi-timeframe alignment?',
+      '- Technical setups that meet entry criteria',
+      '- Risk-reward assessment of top opportunities',
+      '- Any macro concerns (extreme funding, unusual volume)?',
+      '',
+      '**Paragraph 4 - Decision Rationale:**',
+      '- Why these specific actions?',
+      '- How do they fit risk management rules?',
+      '- Expected outcomes and risk mitigation',
+      '',
+      '### Step 2: JSON Trading Decisions',
+      'Format each decision as:',
       '[',
       '  {',
       '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
@@ -315,11 +426,34 @@ export class AIDecisionEngine {
       '    "leverage": 10,',
       '    "stopLoss": 42000,',
       '    "takeProfit": 46000,',
-      '    "reasoning": "Brief reason for this specific decision",',
+      '    "reasoning": "Concise justification: key indicators + setup type + edge",',
       '    "confidence": 0.75',
       '  }',
       ']',
-      'Return [{"action": "wait", "reasoning": "Why waiting is better"}] when no trades meet criteria.',
+      '',
+      '**Action Priority Order:**',
+      '1. Close positions at risk (protect capital)',
+      '2. Close positions near profit targets (secure gains)',
+      '3. Hold strong trending positions (let winners run)',
+      '4. Open new high-conviction setups (selective entry)',
+      '5. Wait if no clear edge (patience is a position)',
+      '',
+      '**Quality over Quantity:**',
+      '- 1-3 high-quality trades > 5-10 mediocre trades',
+      '- Return [{"action": "wait", "reasoning": "No high-probability setups meeting criteria"}] when appropriate',
+      '- Being selective is a competitive advantage',
+      '',
+      '## FINAL CHECKLIST',
+      'Before submitting decisions, verify:',
+      '✓ All decisions reference specific technical indicators',
+      '✓ Risk:reward ratio ≥1:2 for new positions',
+      '✓ Stop-loss and take-profit levels are logical and specific',
+      '✓ Historical performance patterns considered',
+      '✓ Multi-timeframe alignment confirmed',
+      '✓ Confidence scores reflect setup quality (0.6-0.9 range)',
+      '✓ Reasoning is clear and evidence-based',
+      '',
+      'Now analyze the trading context below and provide your expert decision.',
     ].join('\n');
   }
 
@@ -393,103 +527,276 @@ export class AIDecisionEngine {
 
     // 3. Existing Positions Analysis
     if (existingPositions.length > 0) {
-      prompt += `## 3. Existing Positions Analysis\n\n`;
+      prompt += `## 3. Existing Positions - PRIORITY REVIEW\n\n`;
+      prompt += `**ACTION REQUIRED:** Evaluate each position for hold vs. close decision.\n\n`;
       
       for (const pos of existingPositions) {
         const posMarketData = marketData.find(m => m.symbol === pos.symbol);
         
-        prompt += `### ${pos.symbol} - ${pos.side} Position\n`;
-        prompt += `- Entry: $${pos.entryPrice.toFixed(2)} | Current: $${pos.currentPrice.toFixed(2)}\n`;
-        prompt += `- Quantity: ${pos.quantity} | Leverage: ${pos.leverage}x\n`;
-        prompt += `- Unrealized PnL: $${pos.unrealizedPnl.toFixed(2)} (${pos.unrealizedPnlPercent.toFixed(2)}%)\n`;
-        prompt += `- Duration: ${pos.duration || 'N/A'}\n`;
+        prompt += `### ${pos.symbol} - ${pos.side.toUpperCase()} Position\n`;
+        prompt += `**Performance:**\n`;
+        prompt += `- Entry: $${pos.entryPrice.toFixed(2)} → Current: $${pos.currentPrice.toFixed(2)}\n`;
+        prompt += `- Unrealized PnL: $${pos.unrealizedPnl.toFixed(2)} (${pos.unrealizedPnlPercent >= 0 ? '+' : ''}${pos.unrealizedPnlPercent.toFixed(2)}%)\n`;
+        prompt += `- Position Size: ${pos.quantity} @ ${pos.leverage}x leverage\n`;
+        prompt += `- Duration: ${pos.duration || 'N/A'}\n\n`;
         
         if (posMarketData) {
-          prompt += `- Current Price: $${posMarketData.currentPrice.toFixed(2)}\n`;
-          prompt += `- 3min RSI(7): ${posMarketData.indicators3m.rsi7.toFixed(2)}\n`;
-          prompt += `- 3min MACD: ${posMarketData.indicators3m.macd.toFixed(4)} (Signal: ${posMarketData.indicators3m.macdSignal.toFixed(4)})\n`;
-          prompt += `- 4hour RSI(14): ${posMarketData.indicators4h.rsi14.toFixed(2)}\n`;
-          prompt += `- 4hour Trend: ${posMarketData.indicators4h.trend}\n`;
-          prompt += `- 4hour EMA20: $${posMarketData.indicators4h.ema20.toFixed(2)} | EMA50: $${posMarketData.indicators4h.ema50.toFixed(2)}\n`;
+          prompt += `**Current Market Context:**\n`;
           
-          // Include price sequences
-          if (posMarketData.indicators3m.priceSequence) {
+          // 3min analysis
+          const rsi3m = posMarketData.indicators3m.rsi7;
+          const macd3m = posMarketData.indicators3m.macd;
+          const macdSignal3m = posMarketData.indicators3m.macdSignal;
+          const rsiSignal3m = rsi3m < 30 ? '🔴 OVERSOLD' : rsi3m > 70 ? '🔴 OVERBOUGHT' : '⚪ NEUTRAL';
+          const macdSignal3mCross = macd3m > macdSignal3m ? '🟢 BULLISH' : '🔴 BEARISH';
+          
+          prompt += `- 3min: RSI(7)=${rsi3m.toFixed(1)} ${rsiSignal3m} | MACD ${macdSignal3mCross}\n`;
+          prompt += `  - MACD: ${macd3m.toFixed(4)} vs Signal: ${macdSignal3m.toFixed(4)} (Hist: ${posMarketData.indicators3m.macdHistogram.toFixed(4)})\n`;
+          prompt += `  - Price vs EMA20: $${posMarketData.currentPrice.toFixed(2)} vs $${posMarketData.indicators3m.ema20.toFixed(2)}\n`;
+          
+          // 4h analysis
+          const rsi4h = posMarketData.indicators4h.rsi14;
+          const trend4h = posMarketData.indicators4h.trend || 'neutral';
+          const rsiSignal4h = rsi4h < 30 ? '🔴 OVERSOLD' : rsi4h > 70 ? '🔴 OVERBOUGHT' : '⚪ NEUTRAL';
+          const trendEmoji = trend4h === 'bullish' ? '🟢' : trend4h === 'bearish' ? '🔴' : '⚪';
+          
+          prompt += `- 4hour: RSI(14)=${rsi4h.toFixed(1)} ${rsiSignal4h} | Trend: ${trendEmoji} ${trend4h.toUpperCase()}\n`;
+          prompt += `  - EMA20: $${posMarketData.indicators4h.ema20.toFixed(2)} | EMA50: $${posMarketData.indicators4h.ema50.toFixed(2)}\n`;
+          prompt += `  - ATR: ${posMarketData.indicators4h.atr.toFixed(2)} (volatility reference)\n`;
+          
+          // Recent price action
+          if (posMarketData.indicators3m.priceSequence && posMarketData.indicators3m.priceSequence.length >= 10) {
             const recent3m = posMarketData.indicators3m.priceSequence.slice(-10);
-            prompt += `- Recent 3min prices: [${recent3m.map(p => p.toFixed(2)).join(', ')}]\n`;
+            const priceChange3m = ((recent3m[recent3m.length - 1] - recent3m[0]) / recent3m[0] * 100).toFixed(2);
+            prompt += `- Recent 3min trend (10 candles): ${priceChange3m}% | [${recent3m.slice(-5).map(p => p.toFixed(2)).join(', ')}]\n`;
           }
           
-          if (posMarketData.indicators4h.priceSequence) {
-            const recent4h = posMarketData.indicators4h.priceSequence.slice(-5);
-            prompt += `- Recent 4hour prices: [${recent4h.map(p => p.toFixed(2)).join(', ')}]\n`;
+          // Decision guidance
+          prompt += `\n**Decision Guidance:**\n`;
+          if (pos.side === 'LONG') {
+            prompt += `- For LONG: Close if 3min MACD turns bearish + price breaks below EMA20 + 4h shows weakness\n`;
+            prompt += `- Hold if: Trend remains bullish, RSI not overbought, price above EMAs\n`;
+            if (pos.unrealizedPnlPercent < -2) {
+              prompt += `- ⚠️ WARNING: Position down ${Math.abs(pos.unrealizedPnlPercent).toFixed(1)}% - consider stop-loss\n`;
+            } else if (pos.unrealizedPnlPercent > 3) {
+              prompt += `- 💰 PROFIT: Consider taking profit or trailing stop\n`;
+            }
+          } else {
+            prompt += `- For SHORT: Close if 3min MACD turns bullish + price breaks above EMA20 + 4h shows strength\n`;
+            prompt += `- Hold if: Trend remains bearish, RSI not oversold, price below EMAs\n`;
+            if (pos.unrealizedPnlPercent < -2) {
+              prompt += `- ⚠️ WARNING: Position down ${Math.abs(pos.unrealizedPnlPercent).toFixed(1)}% - consider stop-loss\n`;
+            } else if (pos.unrealizedPnlPercent > 3) {
+              prompt += `- 💰 PROFIT: Consider taking profit or trailing stop\n`;
+            }
           }
         }
         
-        prompt += `**Decision: Should this position be held or closed?**\n\n`;
+        prompt += `\n`;
       }
     } else {
-      prompt += `## 3. Existing Positions\n\nNo open positions.\n\n`;
+      prompt += `## 3. Existing Positions\n\nNo open positions. Fresh opportunity to enter high-conviction trades.\n\n`;
     }
 
     // 4. New Opportunities
-    prompt += `## 4. Market Opportunities (${marketData.length} Candidates)\n\n`;
+    prompt += `## 4. Market Opportunity Scan (${marketData.length} Candidates)\n\n`;
+    prompt += `**Objective:** Identify assets with multi-timeframe confluence and strong technical setups.\n\n`;
     
   const marketDataLimit = this.provider === 'local' ? marketData.length : 15;
 
-  for (const data of marketData.slice(0, marketDataLimit)) { // Limit entries for remote AI to avoid token limits
-      prompt += `### ${data.symbol}\n`;
-      prompt += `- Current Price: $${data.currentPrice.toFixed(2)} (24h: ${data.priceChangePercent24h >= 0 ? '+' : ''}${data.priceChangePercent24h.toFixed(2)}%)\n`;
-      prompt += `- Volume 24h: $${(data.volume24h / 1000000).toFixed(2)}M\n`;
+  for (const data of marketData.slice(0, marketDataLimit)) {
+      // Calculate signal strengths
+      const rsi3m = data.indicators3m.rsi7;
+      const rsi4h = data.indicators4h.rsi14;
+      const macd3m = data.indicators3m.macd;
+      const macdSignal3m = data.indicators3m.macdSignal;
+      const macdHist3m = data.indicators3m.macdHistogram;
+      const trend4h = data.indicators4h.trend || 'neutral';
+      const price = data.currentPrice;
+      const ema20_3m = data.indicators3m.ema20;
+      const ema20_4h = data.indicators4h.ema20;
+      const ema50_4h = data.indicators4h.ema50;
+      
+      // Signal analysis
+      const oversold3m = rsi3m < 30;
+      const overbought3m = rsi3m > 70;
+      const oversold4h = rsi4h < 30;
+      const overbought4h = rsi4h > 70;
+      const macdBullish = macd3m > macdSignal3m && macdHist3m > 0;
+      const macdBearish = macd3m < macdSignal3m && macdHist3m < 0;
+      const priceAboveEMA3m = price > ema20_3m;
+      const priceAboveEMA4h = price > ema20_4h;
+      const ema20Above50 = ema20_4h > ema50_4h;
+      
+      // Confluence score
+      let signals: string[] = [];
+      if (oversold3m || oversold4h) signals.push('OVERSOLD');
+      if (overbought3m || overbought4h) signals.push('OVERBOUGHT');
+      if (macdBullish) signals.push('MACD_BULL');
+      if (macdBearish) signals.push('MACD_BEAR');
+      if (trend4h === 'bullish') signals.push('4H_BULL');
+      if (trend4h === 'bearish') signals.push('4H_BEAR');
+      
+      const signalStr = signals.length > 0 ? ` [${signals.join(' + ')}]` : '';
+      
+      prompt += `### ${data.symbol}${signalStr}\n`;
+      prompt += `**Price & Performance:**\n`;
+      prompt += `- Current: $${price.toFixed(2)} | 24h Change: ${data.priceChangePercent24h >= 0 ? '+' : ''}${data.priceChangePercent24h.toFixed(2)}%\n`;
+      prompt += `- Volume 24h: $${(data.volume24h / 1000000).toFixed(2)}M`;
       if (data.openInterest) {
-        prompt += `- Open Interest: $${(data.openInterest / 1000000).toFixed(2)}M\n`;
+        prompt += ` | Open Interest: $${(data.openInterest / 1000000).toFixed(2)}M`;
       }
       if (data.fundingRate !== undefined) {
-        prompt += `- Funding Rate: ${(data.fundingRate * 100).toFixed(4)}%\n`;
+        const fundingPct = (data.fundingRate * 100).toFixed(4);
+        const fundingSign = Math.abs(data.fundingRate) > 0.0001 ? (data.fundingRate > 0 ? ' (longs paying)' : ' (shorts paying)') : '';
+        prompt += ` | Funding: ${fundingPct}%${fundingSign}`;
       }
+      prompt += `\n\n`;
       
-      // 3min indicators
-      prompt += `- **3min Analysis:**\n`;
-      prompt += `  - RSI(7): ${data.indicators3m.rsi7.toFixed(2)}\n`;
-      prompt += `  - MACD: ${data.indicators3m.macd.toFixed(4)} | Signal: ${data.indicators3m.macdSignal.toFixed(4)} | Hist: ${data.indicators3m.macdHistogram.toFixed(4)}\n`;
-      prompt += `  - EMA20: $${data.indicators3m.ema20.toFixed(2)}\n`;
+      // 3min timeframe
+      prompt += `**3min Timeframe (Entry Timing):**\n`;
+      prompt += `- RSI(7): ${rsi3m.toFixed(1)}`;
+      if (oversold3m) prompt += ` 🔴 OVERSOLD`;
+      else if (overbought3m) prompt += ` 🔴 OVERBOUGHT`;
+      else if (rsi3m < 40) prompt += ` 🟢 Bullish zone`;
+      else if (rsi3m > 60) prompt += ` 🔴 Bearish zone`;
+      prompt += `\n`;
       
-      if (data.indicators3m.priceSequence && data.indicators3m.priceSequence.length > 0) {
+      prompt += `- MACD: ${macd3m.toFixed(4)} vs Signal: ${macdSignal3m.toFixed(4)}`;
+      if (macdBullish) prompt += ` 🟢 BULLISH CROSS`;
+      else if (macdBearish) prompt += ` 🔴 BEARISH CROSS`;
+      prompt += `\n  Histogram: ${macdHist3m.toFixed(4)} (${macdHist3m > 0 ? 'expanding' : 'contracting'})\n`;
+      
+      prompt += `- Price vs EMA20: $${price.toFixed(2)} vs $${ema20_3m.toFixed(2)}`;
+      if (priceAboveEMA3m) prompt += ` 🟢 Above (support)`;
+      else prompt += ` 🔴 Below (resistance)`;
+      prompt += `\n`;
+      
+      if (data.indicators3m.priceSequence && data.indicators3m.priceSequence.length >= 10) {
         const recent = data.indicators3m.priceSequence.slice(-10);
-        prompt += `  - Recent prices: [${recent.map(p => p.toFixed(2)).join(', ')}]\n`;
+        const priceChange = ((recent[recent.length - 1] - recent[0]) / recent[0] * 100).toFixed(2);
+        const trendDirection = parseFloat(priceChange) > 0 ? '🟢 UP' : parseFloat(priceChange) < 0 ? '🔴 DOWN' : '⚪ FLAT';
+        prompt += `- 10-candle trend: ${trendDirection} ${priceChange}% | Recent: [${recent.slice(-5).map(p => p.toFixed(2)).join(', ')}]\n`;
       }
+      prompt += `\n`;
       
-      // 4hour indicators
-      prompt += `- **4hour Analysis:**\n`;
-      prompt += `  - RSI(14): ${data.indicators4h.rsi14.toFixed(2)}\n`;
-      prompt += `  - EMA20: $${data.indicators4h.ema20.toFixed(2)} | EMA50: $${data.indicators4h.ema50.toFixed(2)}\n`;
-      prompt += `  - ATR: ${data.indicators4h.atr.toFixed(2)}\n`;
-      prompt += `  - Trend: ${data.indicators4h.trend}\n`;
+      // 4hour timeframe
+      prompt += `**4hour Timeframe (Trend Context):**\n`;
+      prompt += `- RSI(14): ${rsi4h.toFixed(1)}`;
+      if (oversold4h) prompt += ` 🔴 OVERSOLD`;
+      else if (overbought4h) prompt += ` 🔴 OVERBOUGHT`;
+      prompt += `\n`;
       
-      if (data.indicators4h.priceSequence && data.indicators4h.priceSequence.length > 0) {
+      const trendEmoji = trend4h === 'bullish' ? '🟢' : trend4h === 'bearish' ? '🔴' : '⚪';
+      prompt += `- Trend: ${trendEmoji} ${trend4h.toUpperCase()}`;
+      if (ema20Above50) prompt += ` (EMA20 > EMA50)`;
+      else prompt += ` (EMA20 < EMA50)`;
+      prompt += `\n`;
+      
+      prompt += `- EMA20: $${ema20_4h.toFixed(2)} | EMA50: $${ema50_4h.toFixed(2)}`;
+      if (priceAboveEMA4h) prompt += ` | Price above both ✓`;
+      else if (price < ema50_4h) prompt += ` | Price below both ✗`;
+      else prompt += ` | Price between EMAs`;
+      prompt += `\n`;
+      
+      prompt += `- ATR: ${data.indicators4h.atr.toFixed(2)} (use for stop-loss calculation)\n`;
+      
+      if (data.indicators4h.priceSequence && data.indicators4h.priceSequence.length >= 10) {
         const recent = data.indicators4h.priceSequence.slice(-10);
-        prompt += `  - Recent prices: [${recent.map(p => p.toFixed(2)).join(', ')}]\n`;
+        const priceChange = ((recent[recent.length - 1] - recent[0]) / recent[0] * 100).toFixed(2);
+        prompt += `- 10-candle trend: ${priceChange}% | Recent: [${recent.slice(-5).map(p => p.toFixed(2)).join(', ')}]\n`;
       }
       
+      // Setup assessment
+      prompt += `\n**Setup Quality Assessment:**\n`;
+      let setupQuality = 0;
+      const reasons: string[] = [];
+      
+      // Positive signals
+      if ((oversold3m || oversold4h) && macdBullish && trend4h === 'bullish') {
+        setupQuality += 3;
+        reasons.push('Strong long setup: Oversold + MACD bullish + 4h uptrend');
+      } else if ((overbought3m || overbought4h) && macdBearish && trend4h === 'bearish') {
+        setupQuality += 3;
+        reasons.push('Strong short setup: Overbought + MACD bearish + 4h downtrend');
+      }
+      
+      if (priceAboveEMA3m && priceAboveEMA4h && ema20Above50) {
+        setupQuality += 2;
+        reasons.push('Price structure bullish: Above all EMAs');
+      } else if (!priceAboveEMA3m && !priceAboveEMA4h && !ema20Above50) {
+        setupQuality += 2;
+        reasons.push('Price structure bearish: Below all EMAs');
+      }
+      
+      if (Math.abs(data.priceChangePercent24h) > 5) {
+        setupQuality -= 1;
+        reasons.push('⚠️ Extreme 24h move - potential mean reversion risk');
+      }
+      
+      if (setupQuality >= 3) {
+        prompt += `✅ HIGH CONVICTION (Score: ${setupQuality}/5)\n`;
+      } else if (setupQuality >= 1) {
+        prompt += `⚡ MODERATE SETUP (Score: ${setupQuality}/5)\n`;
+      } else {
+        prompt += `⚪ WEAK/NO CLEAR SETUP (Score: ${setupQuality}/5)\n`;
+      }
+      
+      reasons.forEach(r => prompt += `  - ${r}\n`);
       prompt += `\n`;
     }
 
     // 5. AI Decision Request
-    prompt += `## 5. Your Decision\n\n`;
+    prompt += `## 5. Your Expert Decision\n\n`;
     if (includeChainOfThought) {
-      prompt += `Based on the above analysis:\n`;
-      prompt += `1. First, provide your Chain of Thought reasoning (analyze patterns, risks, opportunities)\n`;
-      prompt += `2. Then, provide actionable decisions in JSON format\n`;
-      prompt += `3. Prioritize closing existing positions over opening new ones\n`;
-      prompt += `4. Consider historical performance - avoid coins with poor track record\n`;
-      prompt += `5. Ensure all decisions follow risk management rules\n`;
-      prompt += `6. Be conservative if win rate is below 50%, aggressive if above 65%\n\n`;
-      prompt += `Provide your complete analysis and decisions now:`;
+      prompt += `Execute your decision-making protocol:\n\n`;
+      prompt += `### STEP 1: Chain of Thought Analysis\n`;
+      prompt += `Provide 4 structured paragraphs:\n\n`;
+      prompt += `**1. Portfolio Assessment:**\n`;
+      prompt += `- Review each open position: Is it in profit/loss? Should it be held or closed?\n`;
+      prompt += `- Evaluate overall margin usage and risk exposure\n`;
+      prompt += `- Assess account momentum (gaining or losing equity)\n\n`;
+      prompt += `**2. Historical Context:**\n`;
+      prompt += `- Current win rate interpretation (adjust strategy accordingly)\n`;
+      prompt += `- Best/worst coins performance - what does this tell us?\n`;
+      prompt += `- Recent trades pattern - any red flags or positive trends?\n`;
+      prompt += `- Key lessons to apply from past mistakes/successes\n\n`;
+      prompt += `**3. Market Opportunity Scan:**\n`;
+      prompt += `- Identify assets with 3min + 4h timeframe alignment\n`;
+      prompt += `- Which setups meet ALL entry criteria? (RSI, MACD, Volume, EMA)\n`;
+      prompt += `- Calculate risk:reward for top 2-3 opportunities\n`;
+      prompt += `- Note any concerns (high funding rates, extreme price moves, weak volume)\n\n`;
+      prompt += `**4. Action Plan & Rationale:**\n`;
+      prompt += `- Explain specific actions you will take (close X, open Y, wait)\n`;
+      prompt += `- How each action aligns with risk management rules\n`;
+      prompt += `- Expected probability of success for each trade\n`;
+      prompt += `- Backup plan if trades go against you\n\n`;
+      prompt += `### STEP 2: JSON Trading Decisions\n`;
+      prompt += `Translate your analysis into precise trading decisions.\n\n`;
+      prompt += `**Priority order:**\n`;
+      prompt += `1. FIRST: Close any positions at significant risk or near targets\n`;
+      prompt += `2. SECOND: Enter only the highest-conviction new positions (1-3 max)\n`;
+      prompt += `3. DEFAULT: Wait if no clear high-probability setups exist\n\n`;
+      prompt += `**Quality standards:**\n`;
+      prompt += `- Each decision must reference specific indicators from the data\n`;
+      prompt += `- Stop-loss and take-profit must have clear technical justification\n`;
+      prompt += `- Confidence scores should reflect genuine setup quality (0.6-0.9)\n`;
+      prompt += `- "reasoning" field should be concise but complete (10-20 words)\n\n`;
+      prompt += `**Risk verification:**\n`;
+      prompt += `- Verify risk:reward ratio ≥1:2.5 for all new positions\n`;
+      prompt += `- Confirm stop-loss placement won't trigger on normal volatility\n`;
+      prompt += `- Ensure leverage is appropriate for current win rate\n\n`;
+      prompt += `Now provide your complete Chain of Thought analysis followed by your JSON decisions:`;
     } else {
-      prompt += `Based on the above analysis, respond with a JSON array of decisions only. Follow these rules:\n`;
-      prompt += `- Omit all explanations outside of the JSON array\n`;
-      prompt += `- Include reasoning inside each decision object\n`;
-      prompt += `- Prioritize closing risky positions before opening new ones\n`;
-      prompt += `- Ensure each decision respects risk management constraints\n`;
-      prompt += `Return [] if no trades should be taken.`;
+      prompt += `Provide ONLY a JSON array of trading decisions. No other text.\n\n`;
+      prompt += `**Decision rules:**\n`;
+      prompt += `1. Evaluate existing positions FIRST - close those at risk or near profit targets\n`;
+      prompt += `2. Only open new positions with multi-timeframe confluence and strong indicators\n`;
+      prompt += `3. Respect historical performance - avoid repeatedly losing coins, favor consistent winners\n`;
+      prompt += `4. Enforce strict risk:reward minimum of 1:2.5\n`;
+      prompt += `5. Include specific technical reasoning in each decision object\n`;
+      prompt += `6. Adjust leverage based on current win rate (lower if <55%, higher if >65%)\n\n`;
+      prompt += `**Response format:** Return [] if no high-conviction setups meet all criteria. Quality > quantity.\n`;
     }
 
     return prompt;
