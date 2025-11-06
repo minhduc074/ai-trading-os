@@ -8,7 +8,7 @@ The AI Trading Operating System now supports using a **local AI server** instead
 
 ## Prerequisites
 
-You need a local AI server running on your machine. The system is designed to work with the DeepSeek-compatible API format.
+You need a local AI server running on your machine. The system is designed to work with the DeepSeek-compatible API format **and** the ChatGPT no-login automation described in `ai-chat-automation/CHATGPT_NO_LOGIN.md`.
 
 ## Configuration
 
@@ -22,8 +22,9 @@ AI_PROVIDER=local  # Use local AI server
 
 # Local AI Server Settings
 LOCAL_AI_URL=http://localhost:5000
-LOCAL_AI_EMAIL=your_email@example.com
-LOCAL_AI_PASSWORD=your_password
+LOCAL_AI_PLATFORM=deepseek  # deepseek or chatgpt
+LOCAL_AI_EMAIL=your_email@example.com  # optional when using chatgpt
+LOCAL_AI_PASSWORD=your_password  # optional when using chatgpt
 ```
 
 ### 2. Start Your Local AI Server
@@ -60,20 +61,24 @@ Your local AI server should accept this request format:
 ```json
 POST /api/chat/send
 {
-  "platform": "deepseek",
+  "platform": "chatgpt",
   "message": "Trading analysis prompt...",
   "session_id": "trading_ai_1234567890"
 }
 ```
+
+> The `platform` field is determined by `LOCAL_AI_PLATFORM` (use `chatgpt` for the no-login browser automation or `deepseek` for DeepSeek-compatible servers).
 
 And return this response format:
 
 ```json
 {
   "message": "Original prompt",
-  "response": "AI response with Chain of Thought reasoning and JSON decisions..."
+  "response": "[{\"action\":\"wait\",\"reasoning\":\"No trades\"}]"
 }
 ```
+
+> Local mode is optimized for latency: it now returns **JSON arrays only**. The system automatically captures reasoning from each decision object, so avoid adding extra narrative text around the JSON.
 
 ## Expected AI Response Format
 

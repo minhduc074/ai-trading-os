@@ -4,7 +4,7 @@ A professional AI-powered trading system with self-learning capabilities, suppor
 
 ## 🚀 Key Features
 
-- **Local AI Support**: Run completely free with your local AI server (no API keys needed!)
+- **Local AI Support**: Run completely free with your local AI server (no API keys needed, JSON-only responses for speed)
 - **Full Trading Support**: Long/short, leverage up to 50x, stop-loss/take-profit
 - **AI Self-Learning**: Analyzes last 20 trading cycles, learns from mistakes, reinforces successes
 - **Multi-Exchange Support**: Binance (mainnet/testnet), Hyperliquid, Aster DEX
@@ -22,7 +22,7 @@ npm install
 
 1. Copy `.env.example` to `.env`
 2. Choose AI provider:
-   - **Local AI** (recommended): Set `AI_PROVIDER=local` - see [LOCAL_AI_SETUP.md](LOCAL_AI_SETUP.md)
+    - **Local AI** (recommended): Set `AI_PROVIDER=local` and choose `LOCAL_AI_PLATFORM=chatgpt` (browser automation) or `deepseek` (compatible API) - see [LOCAL_AI_SETUP.md](LOCAL_AI_SETUP.md)
    - **Cloud AI**: Set `AI_PROVIDER=deepseek` or `qwen` and add API keys
 3. Fill in your Binance API keys
 4. Choose trading mode (testnet/mainnet)

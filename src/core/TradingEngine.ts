@@ -318,7 +318,34 @@ export class TradingEngine {
 
     // Priority 2: Open new positions
     for (const decision of openDecisions) {
-      if (!decision.symbol || !decision.quantity || !decision.leverage) continue;
+      if (!decision.symbol || decision.quantity === undefined || decision.leverage === undefined) {
+        continue;
+      }
+
+      const requestedQuantity = Number(decision.quantity);
+      const leverage = Number(decision.leverage);
+
+      if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+        console.log(`   ⚠️  Skipping ${decision.symbol || 'unknown'} open: invalid quantity ${decision.quantity}`);
+        results.push({
+          decision,
+          success: false,
+          error: 'Invalid quantity specified',
+          timestamp: Date.now(),
+        });
+        continue;
+      }
+
+      if (!Number.isFinite(leverage) || leverage <= 0) {
+        console.log(`   ⚠️  Skipping ${decision.symbol || 'unknown'} open: invalid leverage ${decision.leverage}`);
+        results.push({
+          decision,
+          success: false,
+          error: 'Invalid leverage specified',
+          timestamp: Date.now(),
+        });
+        continue;
+      }
 
       const side = decision.action === 'open_long' ? 'LONG' : 'SHORT';
       
@@ -327,25 +354,87 @@ export class TradingEngine {
       // Get current price
       const currentPrice = await this.trader.getMarketPrice(decision.symbol);
 
+      if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+        console.log(`   ❌ Unable to fetch valid market price for ${decision.symbol}`);
+        results.push({
+          decision,
+          success: false,
+          error: 'Unable to fetch market price',
+          timestamp: Date.now(),
+        });
+        continue;
+      }
+
+      // Ensure quantity satisfies exchange minimums (min notional / step size)
+      const { quantity: normalizedQuantity, minNotional, adjusted } = await this.ensureMinimumQuantity(
+        decision.symbol,
+        requestedQuantity,
+        currentPrice
+      );
+
+      if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+        console.log(`   ❌ Unable to determine valid quantity for ${decision.symbol}`);
+        results.push({
+          decision,
+          success: false,
+          error: 'Quantity failed minimum notional checks',
+          timestamp: Date.now(),
+        });
+        continue;
+      }
+
+      if (adjusted) {
+        console.log(
+          `   ↪ Adjusted quantity to ${normalizedQuantity} to satisfy minimum notional $${minNotional.toFixed(2)}`
+        );
+      }
+
+      // Use normalized quantity for downstream checks/execution
+      decision.quantity = normalizedQuantity;
+      decision.leverage = leverage;
+      let finalQuantity = normalizedQuantity;
+      const finalLeverage = leverage;
+
       // Risk checks
-      const riskCheck = await this.riskManager.checkNewPosition(
+      let riskCheck = await this.riskManager.checkNewPosition(
         decision.symbol,
         side,
-        decision.quantity,
-        decision.leverage,
+        finalQuantity,
+        finalLeverage,
         currentPrice,
         accountInfo
       );
 
       if (!riskCheck.allowed) {
-        console.log(`   ⚠️  Open blocked: ${riskCheck.reason}`);
-        results.push({
-          decision,
-          success: false,
-          error: riskCheck.reason,
-          timestamp: Date.now(),
-        });
-        continue;
+        const fallbackQuantity = riskCheck.adjustedQuantity;
+
+        if (fallbackQuantity && fallbackQuantity > 0 && fallbackQuantity < finalQuantity) {
+          console.log(`   ⚠️  Risk warning: ${riskCheck.reason}`);
+          console.log(`   ↪ Retrying with 30% size (${fallbackQuantity}) to remain within margin limits`);
+
+          finalQuantity = fallbackQuantity;
+          decision.quantity = finalQuantity;
+
+          riskCheck = await this.riskManager.checkNewPosition(
+            decision.symbol,
+            side,
+            finalQuantity,
+            finalLeverage,
+            currentPrice,
+            accountInfo
+          );
+        }
+
+        if (!riskCheck.allowed) {
+          console.log(`   ⚠️  Open blocked: ${riskCheck.reason}`);
+          results.push({
+            decision,
+            success: false,
+            error: riskCheck.reason,
+            timestamp: Date.now(),
+          });
+          continue;
+        }
       }
 
       // Validate SL/TP
@@ -371,8 +460,8 @@ export class TradingEngine {
       const result = await this.trader.openPosition(
         decision.symbol,
         side,
-        decision.quantity,
-        decision.leverage,
+        finalQuantity,
+        finalLeverage,
         decision.stopLoss,
         decision.takeProfit
       );
@@ -386,8 +475,8 @@ export class TradingEngine {
           side,
           symbolSide: `${decision.symbol}_${side}`,
           entryPrice: result.executedPrice || currentPrice,
-          quantity: result.executedQuantity || decision.quantity,
-          leverage: decision.leverage,
+          quantity: result.executedQuantity ?? finalQuantity,
+          leverage: finalLeverage,
           openTime: Date.now(),
           openOrderId: result.orderId,
           stopLoss: decision.stopLoss,
@@ -404,6 +493,107 @@ export class TradingEngine {
     }
 
     return results;
+  }
+
+  /**
+   * Ensure requested quantity satisfies Binance minimum notional/lot size rules
+   */
+  private async ensureMinimumQuantity(
+    symbol: string,
+    desiredQuantity: number,
+    price: number
+  ): Promise<{ quantity: number; minNotional: number; adjusted: boolean }> {
+    const FALLBACK_MIN_NOTIONAL = 5;
+
+    if (!Number.isFinite(desiredQuantity) || desiredQuantity <= 0 || !Number.isFinite(price) || price <= 0) {
+      return { quantity: 0, minNotional: FALLBACK_MIN_NOTIONAL, adjusted: false };
+    }
+
+    let minNotional = FALLBACK_MIN_NOTIONAL;
+    let stepSize: number | undefined;
+    let minQty: number | undefined;
+
+    try {
+      const symbolInfo: any = await this.trader.getSymbolInfo(symbol);
+      const filters: any[] = Array.isArray(symbolInfo?.filters) ? symbolInfo.filters : [];
+
+      const minNotionalFilter = filters.find(
+        f => f?.filterType === 'MIN_NOTIONAL' || f?.filterType === 'NOTIONAL'
+      );
+      if (minNotionalFilter) {
+        const candidates = [
+          minNotionalFilter.notional,
+          minNotionalFilter.minNotional,
+          minNotionalFilter.notionalFloor,
+          minNotionalFilter.threshold,
+        ];
+        for (const candidate of candidates) {
+          const numeric = typeof candidate === 'string' ? parseFloat(candidate) : Number(candidate);
+          if (Number.isFinite(numeric) && numeric > 0) {
+            minNotional = Math.max(minNotional, numeric);
+            break;
+          }
+        }
+      }
+
+      const lotSizeFilter = filters.find(f => f?.filterType === 'MARKET_LOT_SIZE')
+        || filters.find(f => f?.filterType === 'LOT_SIZE');
+
+      if (lotSizeFilter) {
+        const stepCandidate = typeof lotSizeFilter.stepSize === 'string'
+          ? parseFloat(lotSizeFilter.stepSize)
+          : Number(lotSizeFilter.stepSize);
+        const minQtyCandidate = typeof lotSizeFilter.minQty === 'string'
+          ? parseFloat(lotSizeFilter.minQty)
+          : Number(lotSizeFilter.minQty);
+
+        if (Number.isFinite(stepCandidate) && stepCandidate > 0) {
+          stepSize = stepCandidate;
+        }
+        if (Number.isFinite(minQtyCandidate) && minQtyCandidate > 0) {
+          minQty = minQtyCandidate;
+        }
+      }
+    } catch (error: any) {
+      console.warn(`Failed to load symbol info for ${symbol}: ${error.message}`);
+    }
+
+    let quantity = desiredQuantity;
+
+    if (Number.isFinite(minQty) && minQty! > 0 && quantity < minQty!) {
+      quantity = minQty!;
+    }
+
+    const minQtyByNotional = minNotional / price;
+    if (quantity < minQtyByNotional) {
+      quantity = minQtyByNotional;
+    }
+
+    if (stepSize && stepSize > 0) {
+      const precision = this.getPrecision(stepSize);
+      const steps = Math.ceil(quantity / stepSize - 1e-9);
+      quantity = steps * stepSize;
+      quantity = parseFloat(quantity.toFixed(precision));
+    }
+
+    const adjusted = Math.abs(quantity - desiredQuantity) > 1e-12;
+    return { quantity, minNotional, adjusted };
+  }
+
+  private getPrecision(value: number): number {
+    if (!Number.isFinite(value) || value === 0) {
+      return 0;
+    }
+
+    const text = value.toString();
+    if (text.includes('e-')) {
+      const [base, exp] = text.split('e-');
+      const baseDecimals = base.includes('.') ? base.split('.')[1].length : 0;
+      return parseInt(exp, 10) + baseDecimals;
+    }
+
+    const decimals = text.split('.')[1];
+    return decimals ? decimals.length : 0;
   }
 
   /**

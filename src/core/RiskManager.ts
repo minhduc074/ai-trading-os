@@ -81,10 +81,25 @@ export class RiskManager {
     const projectedMarginUsage = (accountInfo.totalMarginUsed + requiredMargin) / accountInfo.totalEquity;
 
     if (projectedMarginUsage > this.config.maxMarginUsage) {
-      return {
+      const maxMarginValue = this.config.maxMarginUsage * accountInfo.totalEquity;
+      const availableMargin = Math.max(0, maxMarginValue - accountInfo.totalMarginUsed);
+      const thirtyPercentQuantity = quantity * 0.3;
+      const marginLimitedQuantity = availableMargin > 0 ? availableMargin / price : 0;
+      const fallbackQuantity = Math.min(thirtyPercentQuantity, marginLimitedQuantity);
+
+      const baseReason = `Projected margin usage ${(projectedMarginUsage * 100).toFixed(1)}% exceeds maximum ${(this.config.maxMarginUsage * 100).toFixed(1)}%`;
+
+      const result: RiskCheckResult = {
         allowed: false,
-        reason: `Projected margin usage ${(projectedMarginUsage * 100).toFixed(1)}% exceeds maximum ${(this.config.maxMarginUsage * 100).toFixed(1)}%`,
+        reason: baseReason,
       };
+
+      if (fallbackQuantity > 0 && fallbackQuantity < quantity) {
+        result.adjustedQuantity = fallbackQuantity;
+        result.reason = `${baseReason}. Suggested fallback quantity: ${fallbackQuantity.toFixed(6)}`;
+      }
+
+      return result;
     }
 
     // Check 6: Available balance

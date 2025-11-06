@@ -22,6 +22,11 @@ async function main() {
 ╚═══════════════════════════════════════════════════════════════╝
 `);
 
+  const localAiPlatform: 'deepseek' | 'chatgpt' =
+    process.env.LOCAL_AI_PLATFORM?.toLowerCase() === 'chatgpt'
+      ? 'chatgpt'
+      : 'deepseek';
+
   // Load configuration
   const config: TradingConfig = {
     mode: (process.env.TRADING_MODE as 'mainnet' | 'testnet') || 'testnet',
@@ -41,6 +46,7 @@ async function main() {
     topOICount: parseInt(process.env.TOP_OI_COUNT || '20'),
     
     aiProvider: (process.env.AI_PROVIDER as 'local' | 'deepseek' | 'qwen') || 'local',
+    localAiPlatform,
     historicalCyclesCount: parseInt(process.env.HISTORICAL_CYCLES_COUNT || '20'),
   };
 
@@ -49,6 +55,9 @@ async function main() {
   console.log(`   Decision Interval: ${config.decisionInterval / 1000}s`);
   console.log(`   Max Positions: ${config.maxPositions}`);
   console.log(`   AI Provider: ${config.aiProvider}`);
+  if (config.aiProvider === 'local') {
+    console.log(`   Local AI Platform: ${config.localAiPlatform}`);
+  }
   console.log(`   Coin Selection: ${config.coinSelectionMode}`);
   console.log('');
 
@@ -105,6 +114,7 @@ async function main() {
         localUrl: process.env.LOCAL_AI_URL || 'http://localhost:5000',
         localEmail: process.env.LOCAL_AI_EMAIL,
         localPassword: process.env.LOCAL_AI_PASSWORD,
+        localPlatform: config.localAiPlatform,
       });
     } else {
       // Cloud AI (DeepSeek/Qwen)

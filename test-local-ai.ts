@@ -9,11 +9,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const LOCAL_AI_URL = process.env.LOCAL_AI_URL || 'http://localhost:5000';
+const LOCAL_AI_PLATFORM = process.env.LOCAL_AI_PLATFORM?.toLowerCase() === 'chatgpt' ? 'chatgpt' : 'deepseek';
 const session_id = `test_${Date.now()}`;
 
 async function testLocalAI() {
   console.log('='.repeat(60));
   console.log('Local AI Connection Test');
+  console.log(`Platform: ${LOCAL_AI_PLATFORM}`);
   console.log('='.repeat(60));
   console.log();
 
@@ -34,7 +36,7 @@ async function testLocalAI() {
   console.log('2. Logging in to AI server...');
   try {
     const response = await axios.post(`${LOCAL_AI_URL}/api/chat/login`, {
-      platform: 'deepseek',
+      platform: LOCAL_AI_PLATFORM,
       email: process.env.LOCAL_AI_EMAIL,
       password: process.env.LOCAL_AI_PASSWORD,
       session_id: session_id,
@@ -71,7 +73,7 @@ Example: [{"action": "open_long", "symbol": "BTCUSDT", "quantity": 0.01, "levera
   try {
     console.log('   Sending prompt to AI...');
     const response = await axios.post(`${LOCAL_AI_URL}/api/chat/send`, {
-      platform: 'deepseek',
+      platform: LOCAL_AI_PLATFORM,
       message: testPrompt,
       session_id: session_id,
     }, { timeout: 60000 });
@@ -112,7 +114,7 @@ Example: [{"action": "open_long", "symbol": "BTCUSDT", "quantity": 0.01, "levera
   console.log('4. Closing session...');
   try {
     await axios.post(`${LOCAL_AI_URL}/api/chat/close`, {
-      platform: 'deepseek',
+      platform: LOCAL_AI_PLATFORM,
       session_id: session_id,
     }, { timeout: 3000 });
     console.log(`   ✓ Session closed`);

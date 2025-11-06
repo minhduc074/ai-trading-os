@@ -4,6 +4,8 @@
 
 The AI Trading Operating System has been updated to support **local AI servers** instead of requiring cloud API keys. This gives you complete control and eliminates costs.
 
+Latest update: local mode now supports both **DeepSeek-compatible servers** and the **ChatGPT no-login automation** (see `ai-chat-automation/CHATGPT_NO_LOGIN.md`) by selecting the `LOCAL_AI_PLATFORM` in your `.env` file. Local mode now requests **JSON-only responses** to minimize latency—each decision object must contain its own `reasoning` field.
+
 ## Modified Files
 
 ### 1. **Configuration Files**
@@ -37,7 +39,7 @@ The AI Trading Operating System has been updated to support **local AI servers**
 ### Local AI Flow
 ```
 1. Trading System starts
-2. AIService initializes with LOCAL_AI_URL
+2. AIService initializes with LOCAL_AI_URL and LOCAL_AI_PLATFORM
 3. Optional: Login to AI server with credentials
 4. For each trading decision:
    - Build comprehensive prompt (market data, indicators, history)
@@ -53,17 +55,19 @@ The AI Trading Operating System has been updated to support **local AI servers**
 ```json
 POST http://localhost:5000/api/chat/send
 {
-  "platform": "deepseek",
+  "platform": "chatgpt",
   "message": "System prompt + Trading analysis...",
   "session_id": "trading_ai_1234567890"
 }
 ```
 
-**Response from Local AI:**
+> Set `LOCAL_AI_PLATFORM=chatgpt` to route through the no-login browser automation. Use `LOCAL_AI_PLATFORM=deepseek` for DeepSeek-compatible APIs.
+
+**Response from Local AI (JSON only):**
 ```json
 {
   "message": "Original prompt",
-  "response": "Chain of Thought reasoning...\n\n[{\"action\": \"open_long\", ...}]"
+  "response": "[{\"action\": \"open_long\", \"symbol\": \"BTCUSDT\", \"reasoning\": \"Momentum aligns across timeframes\"}]"
 }
 ```
 
@@ -73,8 +77,9 @@ POST http://localhost:5000/api/chat/send
 ```env
 AI_PROVIDER=local
 LOCAL_AI_URL=http://localhost:5000
-LOCAL_AI_EMAIL=your_email@example.com
-LOCAL_AI_PASSWORD=your_password
+LOCAL_AI_PLATFORM=deepseek  # deepseek or chatgpt
+LOCAL_AI_EMAIL=your_email@example.com  # optional if chatgpt
+LOCAL_AI_PASSWORD=your_password  # optional if chatgpt
 ```
 
 ### Using Cloud AI (Requires Keys)
@@ -89,9 +94,9 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 | Feature | Before (Cloud Only) | After (Local Support) |
 |---------|-------------------|---------------------|
 | **Cost** | $0.14-0.50 per 1M tokens | ✅ **FREE** |
-| **Privacy** | Data sent to DeepSeek/Qwen | ✅ **All data stays local** |
-| **Internet** | Required | ✅ **Can work offline** |
-| **Speed** | 500ms-2s latency | ✅ **100-500ms** |
+| **Privacy** | Data sent to DeepSeek/Qwen | Data sent to AI provider |
+| **Internet** | Required | Required |
+| **Speed** | 500ms-2s latency | ✅ **30-50s** |
 | **Limits** | API rate limits | ✅ **Unlimited** |
 | **Setup** | Just add API key | Requires local AI server |
 
@@ -136,7 +141,7 @@ To verify local AI integration:
 curl http://localhost:5000/health
 
 # 2. Test AI endpoint directly
-curl -X POST http://localhost:5000/api/chat/send -H "Content-Type: application/json" -d '{"platform":"deepseek","message":"Hello","session_id":"test"}'
+curl -X POST http://localhost:5000/api/chat/send -H "Content-Type: application/json" -d '{"platform":"chatgpt","message":"Hello","session_id":"test"}'
 
 # 3. Start trading system
 npm start
@@ -144,6 +149,8 @@ npm start
 # 4. Check logs for "Local AI" messages
 # Should see: "AI Decision Engine initialized: Local server at http://localhost:5000"
 ```
+
+> Replace the `platform` value in the curl command with `deepseek` if that is your configured `LOCAL_AI_PLATFORM`.
 
 ## Troubleshooting
 
