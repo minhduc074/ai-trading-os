@@ -1,10 +1,10 @@
 # AI Trading Operating System v2.0.3
 
-A professional AI-powered trading system with self-learning capabilities, supporting **local AI** or cloud providers, multiple exchanges, and comprehensive risk management.
+A professional AI-powered trading system with self-learning capabilities, supporting cloud AI providers, multiple exchanges, and comprehensive risk management.
 
 ## 🚀 Key Features
 
-- **Local AI Support**: Run completely free with your local AI server (no API keys needed, JSON-only responses for speed)
+- **Cloud AI Integration**: Supports DeepSeek and Qwen AI models
 - **Full Trading Support**: Long/short, leverage up to 50x, stop-loss/take-profit
 - **AI Self-Learning**: Analyzes last 20 trading cycles, learns from mistakes, reinforces successes
 - **Multi-Exchange Support**: Binance (mainnet/testnet), Hyperliquid, Aster DEX
@@ -21,9 +21,7 @@ npm install
 ## ⚙️ Configuration
 
 1. Copy `.env.example` to `.env`
-2. Choose AI provider:
-    - **Local AI** (recommended): Set `AI_PROVIDER=local` and choose `LOCAL_AI_PLATFORM=chatgpt` (browser automation) or `deepseek` (compatible API) - see [LOCAL_AI_SETUP.md](LOCAL_AI_SETUP.md)
-   - **Cloud AI**: Set `AI_PROVIDER=deepseek` or `qwen` and add API keys
+2. Choose AI provider: Set `AI_PROVIDER=deepseek` or `qwen` and add API keys
 3. Fill in your Binance API keys
 4. Choose trading mode (testnet/mainnet)
 

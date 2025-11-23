@@ -22,11 +22,6 @@ async function main() {
 ╚═══════════════════════════════════════════════════════════════╝
 `);
 
-  const localAiPlatform: 'deepseek' | 'chatgpt' =
-    process.env.LOCAL_AI_PLATFORM?.toLowerCase() === 'chatgpt'
-      ? 'chatgpt'
-      : 'deepseek';
-
   // Load configuration
   const config: TradingConfig = {
     mode: (process.env.TRADING_MODE as 'mainnet' | 'testnet') || 'testnet',
@@ -45,8 +40,7 @@ async function main() {
     topAI500Count: parseInt(process.env.TOP_AI500_COUNT || '20'),
     topOICount: parseInt(process.env.TOP_OI_COUNT || '20'),
     
-    aiProvider: (process.env.AI_PROVIDER as 'local' | 'deepseek' | 'qwen') || 'local',
-    localAiPlatform,
+    aiProvider: (process.env.AI_PROVIDER as 'deepseek' | 'qwen') || 'deepseek',
     historicalCyclesCount: parseInt(process.env.HISTORICAL_CYCLES_COUNT || '20'),
   };
 
@@ -55,9 +49,6 @@ async function main() {
   console.log(`   Decision Interval: ${config.decisionInterval / 1000}s`);
   console.log(`   Max Positions: ${config.maxPositions}`);
   console.log(`   AI Provider: ${config.aiProvider}`);
-  if (config.aiProvider === 'local') {
-    console.log(`   Local AI Platform: ${config.localAiPlatform}`);
-  }
   console.log(`   Coin Selection: ${config.coinSelectionMode}`);
   console.log('');
 
@@ -68,9 +59,7 @@ async function main() {
   ];
 
   // Add AI-specific validation
-  if (config.aiProvider === 'local') {
-    requiredVars.push('LOCAL_AI_URL');
-  } else if (config.aiProvider === 'deepseek') {
+  if (config.aiProvider === 'deepseek') {
     requiredVars.push('DEEPSEEK_API_KEY');
   } else if (config.aiProvider === 'qwen') {
     requiredVars.push('QWEN_API_KEY');
@@ -105,29 +94,15 @@ async function main() {
     // Initialize AI engine
     console.log('🧠 Initializing AI engine...');
     
-    let aiEngine: AIDecisionEngine;
-    
-    if (config.aiProvider === 'local') {
-      // Local AI server
-      aiEngine = new AIDecisionEngine({
-        provider: 'local',
-        localUrl: process.env.LOCAL_AI_URL || 'http://localhost:5000',
-        localEmail: process.env.LOCAL_AI_EMAIL,
-        localPassword: process.env.LOCAL_AI_PASSWORD,
-        localPlatform: config.localAiPlatform,
-      });
-    } else {
-      // Cloud AI (DeepSeek/Qwen)
-      aiEngine = new AIDecisionEngine({
-        provider: config.aiProvider,
-        apiKey: config.aiProvider === 'deepseek'
-          ? process.env.DEEPSEEK_API_KEY!
-          : process.env.QWEN_API_KEY!,
-        baseURL: config.aiProvider === 'deepseek'
-          ? process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-          : process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-      });
-    }
+    const aiEngine = new AIDecisionEngine({
+      provider: config.aiProvider,
+      apiKey: config.aiProvider === 'deepseek'
+        ? process.env.DEEPSEEK_API_KEY!
+        : process.env.QWEN_API_KEY!,
+      baseURL: config.aiProvider === 'deepseek'
+        ? process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+        : process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    });
     
     console.log('✅ AI engine ready\n');
 

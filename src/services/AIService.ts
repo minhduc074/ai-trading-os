@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import axios from 'axios';
 import { 
   TradingDecision, 
   AccountInfo, 
@@ -9,118 +8,43 @@ import {
 } from '../types';
 
 interface AIConfig {
-  provider: 'local' | 'deepseek' | 'qwen';
-  apiKey?: string;
+  provider: 'deepseek' | 'qwen';
+  apiKey: string;
   baseURL?: string;
   model?: string;
-  // Local AI server config
-  localUrl?: string;
-  localEmail?: string;
-  localPassword?: string;
-  localPlatform?: 'deepseek' | 'chatgpt';
 }
 
 /**
  * AI Decision Engine
- * Supports local AI server or cloud providers (DeepSeek/Qwen)
+ * Supports cloud providers (DeepSeek/Qwen)
  * with Chain of Thought reasoning and historical feedback learning
  */
 export class AIDecisionEngine {
-  private client?: OpenAI;
+  private client: OpenAI;
   private provider: string;
-  private model?: string;
-  private sessionId?: string;
-  
-  // Local AI config
-  private localUrl?: string;
-  private localEmail?: string;
-  private localPassword?: string;
-  private localPlatform: 'deepseek' | 'chatgpt' = 'deepseek';
-  private isLoggedIn: boolean = false;
+  private model: string;
 
   constructor(config: AIConfig) {
     this.provider = config.provider;
     
-    if (config.provider === 'local') {
-      // Local AI server setup
-      this.localUrl = config.localUrl || 'http://localhost:5000';
-      this.localEmail = config.localEmail;
-      this.localPassword = config.localPassword;
-      this.sessionId = `trading_ai_${Date.now()}`;
-      this.localPlatform = config.localPlatform || 'deepseek';
-      
-      console.log(`AI Decision Engine initialized: Local server at ${this.localUrl} (${this.localPlatform})`);
+    // Cloud AI setup
+    if (config.provider === 'deepseek') {
+      this.model = config.model || 'deepseek-chat';
     } else {
-      // Cloud AI setup
-      if (config.provider === 'deepseek') {
-        this.model = config.model || 'deepseek-chat';
-      } else {
-        this.model = config.model || 'qwen-max';
-      }
-
-      // Initialize OpenAI-compatible client
-      this.client = new OpenAI({
-        apiKey: config.apiKey!,
-        baseURL: config.baseURL,
-      });
-
-      console.log(`AI Decision Engine initialized: ${this.provider} (${this.model})`);
+      this.model = config.model || 'qwen-max';
     }
+
+    // Initialize OpenAI-compatible client
+    this.client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseURL,
+    });
+
+    console.log(`AI Decision Engine initialized: ${this.provider} (${this.model})`);
   }
 
   /**
-   * Initialize local AI session
-   */
-  private async initLocalSession(): Promise<void> {
-    if (!this.localUrl || this.isLoggedIn) return;
-    
-    try {
-      const payload: Record<string, any> = {
-        platform: this.localPlatform,
-        session_id: this.sessionId,
-      };
-
-      if (this.localEmail) {
-        payload.email = this.localEmail;
-      }
-
-      if (this.localPassword) {
-        payload.password = this.localPassword;
-      }
-
-      console.log(`[Local AI] Initializing session (${this.localPlatform}) at ${this.localUrl}`);
-
-  const response = await axios.post(`${this.localUrl}/api/chat/login`, payload, { timeout: 20000 });
-      
-      if (response.status === 200) {
-        this.isLoggedIn = true;
-        console.log(`Local AI session initialized: ${response.data?.message || 'login/handshake successful'}`);
-      }
-    } catch (error: any) {
-      console.warn(`Local AI login attempt: ${error.message}`);
-      // Continue anyway - login may not be required
-    }
-  }
-
-  /**
-   * Close local AI session
-   */
-  async closeLocalSession(): Promise<void> {
-    if (!this.localUrl || !this.sessionId) return;
-    
-    try {
-      await axios.post(`${this.localUrl}/api/chat/close`, {
-        platform: this.localPlatform,
-        session_id: this.sessionId,
-      }, { timeout: 3000 });
-      console.log('Local AI session closed');
-    } catch (error: any) {
-      console.warn(`Failed to close local AI session: ${error.message}`);
-    }
-  }
-
-  /**
-   * Make trading decision using AI (local or cloud)
+   * Make trading decision using AI (cloud providers)
    */
   async makeDecision(
     accountInfo: AccountInfo,
@@ -128,41 +52,32 @@ export class AIDecisionEngine {
     historicalFeedback: HistoricalFeedback,
     existingPositions: Position[]
   ): Promise<{ decisions: TradingDecision[]; chainOfThought: string; fullPrompt: string }> {
-    const includeChainOfThought = this.provider !== 'local';
     const prompt = this.buildPrompt(
       accountInfo,
       marketData,
       historicalFeedback,
-      existingPositions,
-      includeChainOfThought
+      existingPositions
     );
 
     try {
-      let aiResponse: string;
-      
-      if (this.provider === 'local') {
-        // Use local AI server
-        aiResponse = await this.callLocalAI(prompt);
-      } else {
-        // Use cloud AI (DeepSeek/Qwen)
-        const response = await this.client!.chat.completions.create({
-          model: this.model!,
-          messages: [
-            {
-              role: 'system',
-              content: this.getSystemPrompt(false),
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 4000,
-        });
+      // Use cloud AI (DeepSeek/Qwen)
+      const response = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [
+          {
+            role: 'system',
+            content: this.getSystemPrompt(),
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+      });
 
-        aiResponse = response.choices[0].message.content || '';
-      }
+      const aiResponse = response.choices[0].message.content || '';
       
       // Parse the AI response
       const { decisions, chainOfThought } = this.parseAIResponse(aiResponse);
@@ -181,131 +96,7 @@ export class AIDecisionEngine {
     }
   }
 
-  /**
-   * Call local AI server
-   */
-  private async callLocalAI(message: string): Promise<string> {
-    if (!this.localUrl) {
-      throw new Error('Local AI URL not configured');
-    }
-
-    // Initialize session if needed (only once)
-    await this.initLocalSession();
-
-    // Prepare full message with system prompt
-  const fullMessage = this.getSystemPrompt(false) + '\n\n' + message;
-    
-    console.log(`[Local AI] Sending message (${fullMessage.length} chars)...`);
-
-    try {
-      // Send message to local AI
-      const response = await axios.post(`${this.localUrl}/api/chat/send`, {
-        platform: this.localPlatform,
-        message: fullMessage,
-        session_id: this.sessionId,
-      }, { 
-        timeout: 90000 // 90s timeout for AI processing
-      });
-
-      if (response.status === 200 && response.data.response) {
-        console.log(`[Local AI] Received response (${response.data.response.length} chars)`);
-        return response.data.response;
-      } else {
-        throw new Error('Local AI did not return a valid response');
-      }
-    } catch (error: any) {
-      // Handle 401 Unauthorized - re-login and retry
-      if (error.response && error.response.status === 401) {
-        console.warn('[Local AI] Session expired (401), re-authenticating...');
-        this.isLoggedIn = false;
-        await this.initLocalSession();
-        
-        // Retry the request
-        const retryResponse = await axios.post(`${this.localUrl}/api/chat/send`, {
-          platform: this.localPlatform,
-          message: fullMessage,
-          session_id: this.sessionId,
-        }, { 
-          timeout: 90000
-        });
-
-        if (retryResponse.status === 200 && retryResponse.data.response) {
-          console.log(`[Local AI] Received response after re-auth (${retryResponse.data.response.length} chars)`);
-          return retryResponse.data.response;
-        } else {
-          throw new Error('Local AI did not return a valid response after re-authentication');
-        }
-      }
-      
-      // Re-throw other errors
-      throw error;
-    }
-  }
-
-  private getSystemPrompt(includeChainOfThought: boolean): string {
-    if (this.provider === 'local') {
-      return [
-        'You are an elite cryptocurrency trading AI with institutional-grade analysis capabilities.',
-        'Your objective: Generate high-probability trades with asymmetric risk-reward ratios.',
-        '',
-        'Respond with ONLY a JSON array of trading decisions using this shape:',
-        '[',
-        '  {',
-        '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
-        '    "symbol": "BTCUSDT",',
-        '    "quantity": 0.1,',
-        '    "leverage": 10,',
-        '    "stopLoss": 42000,',
-        '    "takeProfit": 46000,',
-        '    "reasoning": "Concise justification with key technical factors",',
-        '    "confidence": 0.75',
-        '  }',
-        ']',
-        '',
-        'Decision Criteria:',
-        '- Only trade when multiple timeframes align (3min + 4h confluence)',
-        '- Minimum risk:reward ratio of 1:2 (prefer 1:3+)',
-        '- RSI extremes: <30 oversold, >70 overbought',
-        '- MACD crossovers with histogram confirmation',
-        '- Volume spikes signal strong moves',
-        '- Respect historical performance data',
-        '',
-        'All numeric fields must be numbers. Return [] when no high-conviction trades exist.',
-      ].join('\n');
-    }
-
-    if (!includeChainOfThought) {
-      return [
-        'You are an elite cryptocurrency trading AI with institutional-grade analysis capabilities.',
-        'Your objective: Generate high-probability trades with asymmetric risk-reward ratios.',
-        '',
-        'Analyze the context and output ONLY a JSON array of trading decisions.',
-        'Each decision must use this structure:',
-        '[',
-        '  {',
-        '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
-        '    "symbol": "BTCUSDT",',
-        '    "quantity": 0.1,',
-        '    "leverage": 10,',
-        '    "stopLoss": 42000,',
-        '    "takeProfit": 46000,',
-        '    "reasoning": "Concise justification with key technical factors",',
-        '    "confidence": 0.75',
-        '  }',
-        ']',
-        '',
-        'Trading Rules:',
-        '1. Multi-timeframe confluence required (3min + 4h alignment)',
-        '2. Minimum 1:2 risk:reward ratio enforced',
-        '3. Trade extremes: RSI <30 or >70 preferred',
-        '4. Confirm with MACD crossovers and volume',
-        '5. Learn from historical win/loss patterns',
-        '6. Close losing positions early, let winners run',
-        '',
-        'Provide no text outside of the JSON array. Return [] if no high-conviction setups exist.',
-      ].join('\n');
-    }
-
+  private getSystemPrompt(): string {
     return [
       '# ELITE CRYPTOCURRENCY TRADING AI - SYSTEM INSTRUCTIONS',
       '',
@@ -461,8 +252,7 @@ export class AIDecisionEngine {
     accountInfo: AccountInfo,
     marketData: MarketData[],
     historicalFeedback: HistoricalFeedback,
-    existingPositions: Position[],
-    includeChainOfThought: boolean
+    existingPositions: Position[]
   ): string {
     let prompt = `# Trading Decision Analysis\n\n`;
 
@@ -602,9 +392,7 @@ export class AIDecisionEngine {
     prompt += `## 4. Market Opportunity Scan (${marketData.length} Candidates)\n\n`;
     prompt += `**Objective:** Identify assets with multi-timeframe confluence and strong technical setups.\n\n`;
     
-  const marketDataLimit = this.provider === 'local' ? marketData.length : 15;
-
-  for (const data of marketData.slice(0, marketDataLimit)) {
+    for (const data of marketData.slice(0, 15)) {
       // Calculate signal strengths
       const rsi3m = data.indicators3m.rsi7;
       const rsi4h = data.indicators4h.rsi14;
@@ -748,56 +536,44 @@ export class AIDecisionEngine {
 
     // 5. AI Decision Request
     prompt += `## 5. Your Expert Decision\n\n`;
-    if (includeChainOfThought) {
-      prompt += `Execute your decision-making protocol:\n\n`;
-      prompt += `### STEP 1: Chain of Thought Analysis\n`;
-      prompt += `Provide 4 structured paragraphs:\n\n`;
-      prompt += `**1. Portfolio Assessment:**\n`;
-      prompt += `- Review each open position: Is it in profit/loss? Should it be held or closed?\n`;
-      prompt += `- Evaluate overall margin usage and risk exposure\n`;
-      prompt += `- Assess account momentum (gaining or losing equity)\n\n`;
-      prompt += `**2. Historical Context:**\n`;
-      prompt += `- Current win rate interpretation (adjust strategy accordingly)\n`;
-      prompt += `- Best/worst coins performance - what does this tell us?\n`;
-      prompt += `- Recent trades pattern - any red flags or positive trends?\n`;
-      prompt += `- Key lessons to apply from past mistakes/successes\n\n`;
-      prompt += `**3. Market Opportunity Scan:**\n`;
-      prompt += `- Identify assets with 3min + 4h timeframe alignment\n`;
-      prompt += `- Which setups meet ALL entry criteria? (RSI, MACD, Volume, EMA)\n`;
-      prompt += `- Calculate risk:reward for top 2-3 opportunities\n`;
-      prompt += `- Note any concerns (high funding rates, extreme price moves, weak volume)\n\n`;
-      prompt += `**4. Action Plan & Rationale:**\n`;
-      prompt += `- Explain specific actions you will take (close X, open Y, wait)\n`;
-      prompt += `- How each action aligns with risk management rules\n`;
-      prompt += `- Expected probability of success for each trade\n`;
-      prompt += `- Backup plan if trades go against you\n\n`;
-      prompt += `### STEP 2: JSON Trading Decisions\n`;
-      prompt += `Translate your analysis into precise trading decisions.\n\n`;
-      prompt += `**Priority order:**\n`;
-      prompt += `1. FIRST: Close any positions at significant risk or near targets\n`;
-      prompt += `2. SECOND: Enter only the highest-conviction new positions (1-3 max)\n`;
-      prompt += `3. DEFAULT: Wait if no clear high-probability setups exist\n\n`;
-      prompt += `**Quality standards:**\n`;
-      prompt += `- Each decision must reference specific indicators from the data\n`;
-      prompt += `- Stop-loss and take-profit must have clear technical justification\n`;
-      prompt += `- Confidence scores should reflect genuine setup quality (0.6-0.9)\n`;
-      prompt += `- "reasoning" field should be concise but complete (10-20 words)\n\n`;
-      prompt += `**Risk verification:**\n`;
-      prompt += `- Verify risk:reward ratio ≥1:2.5 for all new positions\n`;
-      prompt += `- Confirm stop-loss placement won't trigger on normal volatility\n`;
-      prompt += `- Ensure leverage is appropriate for current win rate\n\n`;
-      prompt += `Now provide your complete Chain of Thought analysis followed by your JSON decisions:`;
-    } else {
-      prompt += `Provide ONLY a JSON array of trading decisions. No other text.\n\n`;
-      prompt += `**Decision rules:**\n`;
-      prompt += `1. Evaluate existing positions FIRST - close those at risk or near profit targets\n`;
-      prompt += `2. Only open new positions with multi-timeframe confluence and strong indicators\n`;
-      prompt += `3. Respect historical performance - avoid repeatedly losing coins, favor consistent winners\n`;
-      prompt += `4. Enforce strict risk:reward minimum of 1:2.5\n`;
-      prompt += `5. Include specific technical reasoning in each decision object\n`;
-      prompt += `6. Adjust leverage based on current win rate (lower if <55%, higher if >65%)\n\n`;
-      prompt += `**Response format:** Return [] if no high-conviction setups meet all criteria. Quality > quantity.\n`;
-    }
+    prompt += `Execute your decision-making protocol:\n\n`;
+    prompt += `### STEP 1: Chain of Thought Analysis\n`;
+    prompt += `Provide 4 structured paragraphs:\n\n`;
+    prompt += `**1. Portfolio Assessment:**\n`;
+    prompt += `- Review each open position: Is it in profit/loss? Should it be held or closed?\n`;
+    prompt += `- Evaluate overall margin usage and risk exposure\n`;
+    prompt += `- Assess account momentum (gaining or losing equity)\n\n`;
+    prompt += `**2. Historical Context:**\n`;
+    prompt += `- Current win rate interpretation (adjust strategy accordingly)\n`;
+    prompt += `- Best/worst coins performance - what does this tell us?\n`;
+    prompt += `- Recent trades pattern - any red flags or positive trends?\n`;
+    prompt += `- Key lessons to apply from past mistakes/successes\n\n`;
+    prompt += `**3. Market Opportunity Scan:**\n`;
+    prompt += `- Identify assets with 3min + 4h timeframe alignment\n`;
+    prompt += `- Which setups meet ALL entry criteria? (RSI, MACD, Volume, EMA)\n`;
+    prompt += `- Calculate risk:reward for top 2-3 opportunities\n`;
+    prompt += `- Note any concerns (high funding rates, extreme price moves, weak volume)\n\n`;
+    prompt += `**4. Action Plan & Rationale:**\n`;
+    prompt += `- Explain specific actions you will take (close X, open Y, wait)\n`;
+    prompt += `- How each action aligns with risk management rules\n`;
+    prompt += `- Expected probability of success for each trade\n`;
+    prompt += `- Backup plan if trades go against you\n\n`;
+    prompt += `### STEP 2: JSON Trading Decisions\n`;
+    prompt += `Translate your analysis into precise trading decisions.\n\n`;
+    prompt += `**Priority order:**\n`;
+    prompt += `1. FIRST: Close any positions at significant risk or near targets\n`;
+    prompt += `2. SECOND: Enter only the highest-conviction new positions (1-3 max)\n`;
+    prompt += `3. DEFAULT: Wait if no clear high-probability setups exist\n\n`;
+    prompt += `**Quality standards:**\n`;
+    prompt += `- Each decision must reference specific indicators from the data\n`;
+    prompt += `- Stop-loss and take-profit must have clear technical justification\n`;
+    prompt += `- Confidence scores should reflect genuine setup quality (0.6-0.9)\n`;
+    prompt += `- "reasoning" field should be concise but complete (10-20 words)\n\n`;
+    prompt += `**Risk verification:**\n`;
+    prompt += `- Verify risk:reward ratio ≥1:2.5 for all new positions\n`;
+    prompt += `- Confirm stop-loss placement won't trigger on normal volatility\n`;
+    prompt += `- Ensure leverage is appropriate for current win rate\n\n`;
+    prompt += `Now provide your complete Chain of Thought analysis followed by your JSON decisions:`;
 
     return prompt;
   }
@@ -839,10 +615,6 @@ export class AIDecisionEngine {
     } else {
       // No JSON found, default to wait
       decisions = [{ action: 'wait', reasoning: 'No clear trading signals' }];
-    }
-
-    if (!chainOfThought && this.provider === 'local') {
-      chainOfThought = 'Local AI configured for JSON-only responses.';
     }
 
     return { decisions, chainOfThought };
