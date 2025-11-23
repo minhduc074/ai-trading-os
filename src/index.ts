@@ -40,7 +40,7 @@ async function main() {
     topAI500Count: parseInt(process.env.TOP_AI500_COUNT || '20'),
     topOICount: parseInt(process.env.TOP_OI_COUNT || '20'),
     
-    aiProvider: (process.env.AI_PROVIDER as 'deepseek' | 'qwen') || 'deepseek',
+    aiProvider: (process.env.AI_PROVIDER as 'deepseek' | 'qwen' | 'openrouter') || 'deepseek',
     historicalCyclesCount: parseInt(process.env.HISTORICAL_CYCLES_COUNT || '20'),
   };
 
@@ -63,6 +63,8 @@ async function main() {
     requiredVars.push('DEEPSEEK_API_KEY');
   } else if (config.aiProvider === 'qwen') {
     requiredVars.push('QWEN_API_KEY');
+  } else if (config.aiProvider === 'openrouter') {
+    requiredVars.push('OPENROUTER_API_KEY');
   }
 
   const missing = requiredVars.filter(varName => !process.env[varName]);
@@ -98,10 +100,14 @@ async function main() {
       provider: config.aiProvider,
       apiKey: config.aiProvider === 'deepseek'
         ? process.env.DEEPSEEK_API_KEY!
-        : process.env.QWEN_API_KEY!,
-      baseURL: config.aiProvider === 'deepseek'
-        ? process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-        : process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        : config.aiProvider === 'qwen'
+          ? process.env.QWEN_API_KEY!
+          : process.env.OPENROUTER_API_KEY!,
+        baseURL: config.aiProvider === 'deepseek'
+          ? process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+          : config.aiProvider === 'qwen'
+            ? process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+            : process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
     });
     
     console.log('✅ AI engine ready\n');

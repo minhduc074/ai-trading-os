@@ -8,7 +8,7 @@ import {
 } from '../types';
 
 interface AIConfig {
-  provider: 'deepseek' | 'qwen';
+  provider: 'deepseek' | 'qwen' | 'openrouter';
   apiKey: string;
   baseURL?: string;
   model?: string;
@@ -16,7 +16,7 @@ interface AIConfig {
 
 /**
  * AI Decision Engine
- * Supports cloud providers (DeepSeek/Qwen)
+ * Supports cloud providers (DeepSeek/Qwen/OpenRouter)
  * with Chain of Thought reasoning and historical feedback learning
  */
 export class AIDecisionEngine {
@@ -30,8 +30,12 @@ export class AIDecisionEngine {
     // Cloud AI setup
     if (config.provider === 'deepseek') {
       this.model = config.model || 'deepseek-chat';
-    } else {
+    } else if (config.provider === 'qwen') {
       this.model = config.model || 'qwen-max';
+    } else {
+      // OpenRouter is OpenAI-compatible; pick a sensible default model name
+      // Recommend an OpenRouter-available model (example: Grok or 'gpt-4o-mini')
+      this.model = config.model || 'x-ai/grok-4.1-fast:free';
     }
 
     // Initialize OpenAI-compatible client
@@ -60,8 +64,9 @@ export class AIDecisionEngine {
     );
 
     try {
-      // Use cloud AI (DeepSeek/Qwen)
-      const response = await this.client.chat.completions.create({
+      // Use cloud AI (DeepSeek/Qwen/OpenRouter)
+      // Build call options — OpenRouter supports an extra `reasoning` flag
+      const callOptions: any = {
         model: this.model,
         messages: [
           {
@@ -75,7 +80,15 @@ export class AIDecisionEngine {
         ],
         temperature: 0.7,
         max_tokens: 4000,
-      });
+      };
+
+      if (this.provider === 'openrouter') {
+        // Enable chain-of-thought / internal reasoning where supported.
+        // OpenRouter expects a `reasoning` object with an `enabled` flag.
+        callOptions.reasoning = { enabled: true };
+      }
+
+      const response = await this.client.chat.completions.create(callOptions);
 
       const aiResponse = response.choices[0].message.content || '';
       

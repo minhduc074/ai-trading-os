@@ -32,7 +32,7 @@ BINANCE_API_KEY=your_mainnet_key_here
 BINANCE_API_SECRET=your_mainnet_secret_here
 
 # AI Provider (choose one)
-AI_PROVIDER=deepseek  # or qwen
+AI_PROVIDER=deepseek  # or qwen or openrouter
 
 # DeepSeek API (recommended)
 # Get key from: https://platform.deepseek.com/
@@ -79,6 +79,25 @@ http://localhost:3000
 2. **AI Provider API Key** (choose one)
    - DeepSeek: https://platform.deepseek.com/ (recommended, cost-effective)
    - Qwen: https://dashscope.aliyuncs.com/
+   - OpenRouter: https://openrouter.ai/ (OpenAI-compatible reverse proxy)
+
+   ### OpenRouter usage example
+   If you choose `openrouter`, the official OpenAI-compatible client can be used with a reasoning flag. Example:
+
+   ```ts
+   import OpenAI from 'openai';
+
+   const client = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: '<OPENROUTER_API_KEY>'
+   });
+
+   const r = await client.chat.completions.create({
+      model: 'x-ai/grok-4.1-fast:free',
+      messages: [{ role: 'user', content: 'How many r\'s are in "strawberry"?' }],
+      reasoning: { enabled: true },
+   });
+   ```
 
 ### System Requirements
 
@@ -186,7 +205,7 @@ DASHBOARD_PORT=3000          # Dashboard web server port
    ↓ (Scan market for signals)
    
 5. 🧠 AI Comprehensive Decision
-   ↓ (DeepSeek/Qwen makes decisions)
+   ↓ (DeepSeek/Qwen/OpenRouter makes decisions)
    
 6. ⚡ Execute Trades
    ↓ (Place orders with risk checks)

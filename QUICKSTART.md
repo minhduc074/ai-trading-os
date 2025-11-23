@@ -24,12 +24,10 @@ This will:
 3. Click "API Key" → "Generate HMAC_SHA256 Key"
 4. Save the API Key and Secret Key
 
-### DeepSeek AI (Required)
-1. Go to: https://platform.deepseek.com/
-2. Sign up for an account
-3. Go to "API Keys" section
-4. Create a new API key
-5. Copy the key
+### Cloud AI (DeepSeek / Qwen / OpenRouter - choose one)
+1. DeepSeek: https://platform.deepseek.com/ — Sign up and create an API key
+2. Qwen: https://dashscope.aliyuncs.com/ — Sign up and create an API key
+3. OpenRouter: https://openrouter.ai/ — Sign up and get an API key (OpenAI-compatible)
 
 ## Step 3: Configure (1 minute)
 
@@ -49,8 +47,10 @@ TRADING_MODE=testnet
 BINANCE_TESTNET_API_KEY=paste_your_testnet_key_here
 BINANCE_TESTNET_API_SECRET=paste_your_testnet_secret_here
 
-# DeepSeek AI Key
+# Cloud AI keys
 DEEPSEEK_API_KEY=paste_your_deepseek_key_here
+QWEN_API_KEY=paste_your_qwen_key_here
+OPENROUTER_API_KEY=paste_your_openrouter_key_here
 ```
 
 Save and close.

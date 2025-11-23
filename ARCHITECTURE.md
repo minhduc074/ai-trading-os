@@ -4,7 +4,7 @@
 
 The AI Trading Operating System is a sophisticated automated trading platform that combines:
 - Multi-exchange support (Binance, Hyperliquid, Aster DEX)
-- AI-powered decision making (DeepSeek/Qwen)
+- AI-powered decision making (DeepSeek/Qwen/OpenRouter)
 - Self-learning from historical performance
 - Comprehensive risk management
 - Real-time monitoring and logging
@@ -132,7 +132,7 @@ ITrader (interface)
 ┌─────────────────────────────────────────────────────────────┐
 │                    AI PROCESSING                             │
 ├─────────────────────────────────────────────────────────────┤
-│  DeepSeek or Qwen LLM                                       │
+│  DeepSeek / Qwen / OpenRouter LLM                            │
 │                                                              │
 │  System Prompt:                                             │
 │  • Expert crypto trader                                     │
@@ -341,7 +341,7 @@ const pnl = positionValue * priceChangePercent * leverage;
    └─► Total data: ~200KB
 
 3. AI ANALYSIS (5-15 seconds)
-   ├─► Send prompt to DeepSeek/Qwen
+   ├─► Send prompt to DeepSeek/Qwen/OpenRouter
    ├─► Receive Chain of Thought + Decisions
    └─► Parse JSON decisions
 

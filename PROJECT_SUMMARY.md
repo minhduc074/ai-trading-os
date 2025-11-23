@@ -136,7 +136,7 @@ ai-trading-os/
 
 ### `.env` - Main Configuration
 - Trading mode (testnet/mainnet)
-- API keys (Binance, DeepSeek/Qwen)
+- API keys (Binance, DeepSeek/Qwen/OpenRouter)
 - Risk parameters
 - Market data settings
 - Dashboard settings
@@ -147,7 +147,7 @@ ai-trading-os/
 - axios: HTTP client
 - sqlite3: Database
 - technicalindicators: Technical analysis
-- openai: AI integration (DeepSeek/Qwen)
+- openai: AI integration (DeepSeek/Qwen/OpenRouter)
 - @binance/connector: Binance API
 - TypeScript and tools
 
@@ -216,7 +216,7 @@ Every 3-5 minutes, the system executes this intelligent process:
 └──────────────────────────────────────────────────────────┘
                            ↓
 ┌──────────────────────────────────────────────────────────┐
-│ 5. 🧠 AI Comprehensive Decision (DeepSeek/Qwen)          │
+│ 5. 🧠 AI Comprehensive Decision (DeepSeek/Qwen/OpenRouter)          │
 ├──────────────────────────────────────────────────────────┤
 │  • Review historical feedback:                          │
 │    - Recent win rate & profit factor                    │

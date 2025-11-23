@@ -98,6 +98,7 @@ All notable changes to the AI Trading Operating System will be documented in thi
 #### AI Integration
 - **DeepSeek Support**: Cost-effective AI provider
 - **Qwen Support**: Alternative AI provider
+- **OpenRouter Support**: OpenAI-compatible reverse proxy option
 - **OpenAI-Compatible**: Uses standard OpenAI SDK
 - **Structured Output**: JSON decisions with validation
 - **Error Fallback**: Safe default on AI failure

@@ -92,7 +92,7 @@ Write-Host @"
 
 2. Required API keys:
    - Binance Testnet: https://testnet.binancefuture.com/
-   - DeepSeek or Qwen AI API key
+    - DeepSeek, Qwen or OpenRouter AI API key
 
 3. Start the system:
    npm run dev

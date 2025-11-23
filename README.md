@@ -4,7 +4,7 @@ A professional AI-powered trading system with self-learning capabilities, suppor
 
 ## 🚀 Key Features
 
-- **Cloud AI Integration**: Supports DeepSeek and Qwen AI models
+- **Cloud AI Integration**: Supports DeepSeek, Qwen and OpenRouter AI models
 - **Full Trading Support**: Long/short, leverage up to 50x, stop-loss/take-profit
 - **AI Self-Learning**: Analyzes last 20 trading cycles, learns from mistakes, reinforces successes
 - **Multi-Exchange Support**: Binance (mainnet/testnet), Hyperliquid, Aster DEX
@@ -21,7 +21,7 @@ npm install
 ## ⚙️ Configuration
 
 1. Copy `.env.example` to `.env`
-2. Choose AI provider: Set `AI_PROVIDER=deepseek` or `qwen` and add API keys
+2. Choose AI provider: Set `AI_PROVIDER=deepseek`, `qwen` or `openrouter` and add API keys
 3. Fill in your Binance API keys
 4. Choose trading mode (testnet/mainnet)
 
@@ -54,7 +54,7 @@ The system executes a 7-step intelligent process every 3-5 minutes:
 2. **Get Account Status** (equity, margin, positions)
 3. **Analyze Existing Positions** (hold or close decisions)
 4. **Evaluate New Opportunities** (candidate coins with filtering)
-5. **AI Comprehensive Decision** (DeepSeek/Qwen with CoT reasoning)
+5. **AI Comprehensive Decision** (DeepSeek/Qwen/OpenRouter with CoT reasoning)
 6. **Execute Trades** (with automatic precision handling)
 7. **Record Logs & Update Performance** (complete tracking)
 

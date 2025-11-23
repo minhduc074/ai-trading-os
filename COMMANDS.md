@@ -235,7 +235,7 @@ DECISION_INTERVAL_MS=120000  # 2 minutes (more aggressive)
 - Increase `DECISION_INTERVAL_MS` (less frequent)
 
 ### Improve AI Response Time
-- Use DeepSeek (faster than Qwen)
+- Use DeepSeek or OpenRouter (faster than Qwen)
 - Reduce `HISTORICAL_CYCLES_COUNT` (less data to analyze)
 
 ### Database Maintenance

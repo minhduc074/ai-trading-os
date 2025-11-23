@@ -277,7 +277,7 @@ export interface TradingConfig {
   topOICount: number;
   
   // AI
-  aiProvider: 'deepseek' | 'qwen';
+  aiProvider: 'deepseek' | 'qwen' | 'openrouter';
   historicalCyclesCount: number;
 }
 
