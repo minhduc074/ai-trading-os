@@ -18,6 +18,19 @@ Recommended options
 
 Vercel CLI example (static dashboard deploy)
 1. Build locally: `npm run build`
-2. In the dashboard output folder (if you produce static files), run: `vercel deploy --prod`
+2. Make sure your dashboard client files live in `public/` (this repo now includes `public/index.html`).
+3. Deploy: `vercel deploy --prod` (or use the web dashboard)
+
+Runtime logs and limitations
+- Static pages in `public/` are served by Vercel and won't run long-lived processes. You can view HTTP/serverless logs for `api/*` endpoints in Vercel's Deployment logs (or `vercel logs <deployment>`).
+
+What I added in this repo
+- `public/index.html` — static dashboard that polls `/api/status` every 3s.
+- `api/status.js` — simple serverless endpoint that returns a sample status payload and logs a message every time it's invoked.
+- `vercel.json` updated to serve `public` as the output directory.
+
+How to get logs
+- Visit the Vercel dashboard > Projects > <your project> > Deployments and open a deployment — you will see build logs and runtime logs for serverless functions. Use `vercel logs <deployment>` from the CLI for streaming logs too.
+
 
 If you want help adapting the project for Vercel's serverless model, I can propose a migration path and make the necessary changes.

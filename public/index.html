@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Trading OS - Dashboard (Static)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      /* Minimal styles copied from server HTML to keep layout */
+      body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#0a0e27; color:#e0e0e0; padding:20px }
+      .container{max-width:1400px;margin:0 auto}
+      .header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:30px;border-radius:12px;margin-bottom:30px}
+      .status-card{background:#1a1f3a;border-radius:12px;padding:25px;margin-bottom:20px}
+      .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px}
+      .status-item{background:rgba(255,255,255,0.03);padding:15px;border-radius:8px}
+      .status-label{font-size:12px;color:#888;text-transform:uppercase;margin-bottom:5px}
+      .status-value{font-size:22px;font-weight:bold;color:#fff}
+      .status-badge.running{background:#10dc60;color:#fff;padding:4px 12px;border-radius:20px}
+      .status-badge.stopped{background:#f04141;color:#fff;padding:4px 12px;border-radius:20px}
+      .connection-status{position:fixed;top:20px;right:20px;padding:10px 20px;border-radius:20px;font-weight:bold;z-index:1000}
+      .connected{background:#10dc60}
+      .disconnected{background:#f04141}
+    </style>
+  </head>
+  <body>
+    <div id="connectionStatus" class="connection-status disconnected">🔴 Disconnected</div>
+
+    <div class="container">
+      <div class="header">
+        <h1>🤖 AI Trading Operating System - Dashboard</h1>
+        <p>Static dashboard (polling API). Live updates require a runtime server for WebSockets.</p>
+      </div>
+
+      <div class="status-card">
+        <h2>System Status</h2>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Engine Status</div>
+            <div class="status-value" id="engineStatus"><span class="status-badge stopped">STOPPED</span></div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Trader ID</div>
+            <div class="status-value" id="traderId">-</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Cycle Number</div>
+            <div class="status-value" id="cycleNumber">0</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Last Update</div>
+            <div class="status-value" id="lastUpdate">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <h2>Account Balance</h2>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Total Equity</div>
+            <div class="status-value" id="totalEquity">$0.00</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Available Balance</div>
+            <div class="status-value" id="availableBalance">$0.00</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Unrealized PnL</div>
+            <div class="status-value" id="unrealizedPnl">$0.00</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Open Positions</div>
+            <div class="status-value" id="openPositions">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer" style="text-align:center;color:#888;margin-top:20px">This page polls /api/status every 3s on Vercel. For live WebSocket connections host the server on a platform that supports long running processes.</div>
+    </div>
+
+    <script>
+      async function fetchStatus() {
+        try {
+          const res = await fetch('/api/status');
+          if (!res.ok) throw new Error('status API returned ' + res.status);
+          const data = await res.json();
+          updateDashboard(data);
+          document.getElementById('connectionStatus').className = 'connection-status connected';
+          document.getElementById('connectionStatus').innerText = '🟢 Connected';
+        } catch (err) {
+          console.error('Failed to fetch status:', err);
+          document.getElementById('connectionStatus').className = 'connection-status disconnected';
+          document.getElementById('connectionStatus').innerText = '🔴 Disconnected';
+        }
+      }
+
+      function updateDashboard(data) {
+        const statusBadge = data.isRunning ? '<span class="status-badge running">RUNNING</span>' : '<span class="status-badge stopped">STOPPED</span>';
+        document.getElementById('engineStatus').innerHTML = statusBadge;
+        document.getElementById('traderId').textContent = data.traderId || '-';
+        document.getElementById('cycleNumber').textContent = data.cycleNumber || 0;
+        document.getElementById('lastUpdate').textContent = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+        if (data.accountInfo) {
+          document.getElementById('totalEquity').textContent = '$' + (data.accountInfo.totalEquity || 0).toFixed(2);
+          document.getElementById('availableBalance').textContent = '$' + (data.accountInfo.availableBalance || 0).toFixed(2);
+          document.getElementById('unrealizedPnl').textContent = '$' + (data.accountInfo.totalUnrealizedPnl || 0).toFixed(2);
+          document.getElementById('openPositions').textContent = data.accountInfo.totalPositions || 0;
+        }
+      }
+
+      // Poll regularly
+      fetchStatus();
+      setInterval(fetchStatus, 3000);
+    </script>
+  </body>
+</html>

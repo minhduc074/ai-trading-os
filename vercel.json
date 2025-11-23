@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "outputDirectory": "dist",
+  "outputDirectory": "public",
   "builds": [
     { "src": "package.json", "use": "@vercel/static-build" }
   ]
