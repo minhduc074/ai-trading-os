@@ -2,6 +2,8 @@
 
 A professional AI-powered trading system with self-learning capabilities, supporting cloud AI providers, multiple exchanges, and comprehensive risk management.
 
+**Live Demo:** https://ai-trading-os.onrender.com/
+
 ## 🚀 Key Features
 
 - **Cloud AI Integration**: Supports DeepSeek, Qwen and OpenRouter AI models
