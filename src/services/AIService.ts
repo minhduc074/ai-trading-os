@@ -56,6 +56,10 @@ export class AIDecisionEngine {
     historicalFeedback: HistoricalFeedback,
     existingPositions: Position[]
   ): Promise<{ decisions: TradingDecision[]; chainOfThought: string; fullPrompt: string }> {
+    // Log which coins are being sent to AI for decision
+    const coinSymbols = marketData.map(data => data.symbol);
+    console.log(`[AI Decision] Sending ${coinSymbols.length} coins to AI: ${coinSymbols.join(', ')}`);
+
     const prompt = this.buildPrompt(
       accountInfo,
       marketData,
@@ -438,7 +442,7 @@ export class AIDecisionEngine {
     prompt += `## 4. Market Opportunity Scan (${marketData.length} Candidates)\n\n`;
     prompt += `**Objective:** Identify assets with multi-timeframe confluence and strong technical setups.\n\n`;
     
-    for (const data of marketData.slice(0, 15)) {
+    for (const data of marketData) {
       // Calculate signal strengths
       const rsi3m = data.indicators3m.rsi7;
       const rsi4h = data.indicators4h.rsi14;
