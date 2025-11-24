@@ -222,18 +222,17 @@ export class AIDecisionEngine {
       '',
       '### Step 2: JSON Trading Decisions',
       'Format each decision as:',
-      '[',
-      '  {',
-      '    "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
-      '    "symbol": "BTCUSDT",',
-      '    "quantity": 0.1,',
-      '    "leverage": 10,',
-      '    "stopLoss": 42000,',
-      '    "takeProfit": 46000,',
-      '    "reasoning": "Concise justification: key indicators + setup type + edge",',
-      '    "confidence": 0.75',
-      '  }',
-      ']',
+      '{',
+      '  "action": "close_long" | "close_short" | "open_long" | "open_short" | "hold" | "wait",',
+      '  "symbol": "BTCUSDT" (or null for wait/hold),',
+      '  "position_size_usd": 2200 (notional value including leverage),',
+      '  "profit_target": 46000 (exact price level for profit taking),',
+      '  "stop_loss": 42000 (exact price level for loss cutting),',
+      '  "invalidation_condition": "BTC breaks below $100k" (objective exit signal),',
+      '  "confidence": 75 (0-100 integer conviction level),',
+      '  "risk_usd": 44 (dollar amount at risk),',
+      '  "reasoning": "Concise justification with key technical factors"',
+      '}',
       '',
       '**Action Priority Order:**',
       '1. Close positions at risk (protect capital)',
@@ -242,19 +241,29 @@ export class AIDecisionEngine {
       '4. Open new high-conviction setups (selective entry)',
       '5. Wait if no clear edge (patience is a position)',
       '',
+      '**DEFENSIVE Mode Protocol (Win Rate <35%):**',
+      '- **Reduce Trade Frequency**: Only trade when ALL criteria align perfectly',
+      '- **Tighten Entry Criteria**: Require stronger confluence (RSI extremes + MACD confirmation + volume)',
+      '- **Lower Leverage**: Use 1-3x instead of higher leverage',
+      '- **Smaller Position Sizes**: Risk 0.5-1% of account instead of 1-2%',
+      '- **Wider Stops**: Add 50% more buffer to stop losses',
+      '- **Avoid Weak Setups**: Skip any setup with confidence <70',
+      '- **Focus on Defense**: Close losing positions immediately, be patient on entries',
+      '',
       '**Quality over Quantity:**',
       '- 1-3 high-quality trades > 5-10 mediocre trades',
-      '- Return [{"action": "wait", "reasoning": "No high-probability setups meeting criteria"}] when appropriate',
+      '- Return {"action": "wait", "symbol": null, "position_size_usd": 0, "profit_target": null, "stop_loss": null, "invalidation_condition": "Poor performance - defensive mode", "confidence": 0, "risk_usd": 0, "reasoning": "DEFENSIVE mode: Win rate <45% - waiting for high-conviction setups"} when appropriate',
       '- Being selective is a competitive advantage',
       '',
       '## FINAL CHECKLIST',
       'Before submitting decisions, verify:',
       '✓ All decisions reference specific technical indicators',
-      '✓ Risk:reward ratio ≥1:2 for new positions',
-      '✓ Stop-loss and take-profit levels are logical and specific',
+      '✓ Risk:reward ratio ≥2:1 for new positions',
+      '✓ profit_target/stop_loss levels are logical and specific',
       '✓ Historical performance patterns considered',
       '✓ Multi-timeframe alignment confirmed',
-      '✓ Confidence scores reflect setup quality (0.6-0.9 range)',
+      '✓ Confidence scores reflect setup quality (30-100 range)',
+      '✓ DEFENSIVE mode adjustments applied if win rate <45%',
       '✓ Reasoning is clear and evidence-based',
       '',
       'Now analyze the trading context below and provide your expert decision.',
@@ -315,6 +324,30 @@ export class AIDecisionEngine {
     } else {
       prompt += `No historical data yet. This is the first trading cycle.\n\n`;
     }
+
+    // Determine trading mode based on win rate
+    let tradingMode = 'STANDARD';
+    let modeDescription = '';
+    
+    if (historicalFeedback.totalTrades === 0) {
+      tradingMode = 'STANDARD';
+      modeDescription = 'First trading cycle - follow standard rules';
+    } else if (historicalFeedback.winRate < 45) {
+      tradingMode = 'DEFENSIVE';
+      modeDescription = `DEFENSIVE mode (${historicalFeedback.winRate.toFixed(1)}% win rate): Reduce trades, tighten criteria, lower leverage. Only trade perfect setups with confidence ≥70.`;
+    } else if (historicalFeedback.winRate >= 45 && historicalFeedback.winRate < 55) {
+      tradingMode = 'STANDARD';
+      modeDescription = `STANDARD mode (${historicalFeedback.winRate.toFixed(1)}% win rate): Follow rules strictly, maintain discipline.`;
+    } else if (historicalFeedback.winRate >= 55 && historicalFeedback.winRate < 65) {
+      tradingMode = 'MODERATE';
+      modeDescription = `MODERATE mode (${historicalFeedback.winRate.toFixed(1)}% win rate): Slightly more aggressive on best setups, can use higher leverage on high-confidence trades.`;
+    } else {
+      tradingMode = 'CONFIDENT';
+      modeDescription = `CONFIDENT mode (${historicalFeedback.winRate.toFixed(1)}% win rate): Take high-conviction trades decisively, use full leverage range.`;
+    }
+
+    prompt += `## Current Trading Mode: ${tradingMode}\n\n`;
+    prompt += `${modeDescription}\n\n`;
 
     // 2. Account Status
     prompt += `## 2. Current Account Status\n\n`;
