@@ -93,13 +93,19 @@ export interface Kline {
 export interface TradingDecision {
   action: 'close_long' | 'close_short' | 'open_long' | 'open_short' | 'hold' | 'wait';
   symbol?: string;
+  // New format fields
+  position_size_usd?: number;
+  profit_target?: number;
+  stop_loss?: number;
+  invalidation_condition?: string;
+  confidence?: number;
+  risk_usd?: number;
+  reasoning: string; // Chain of Thought
+  // Legacy fields (deprecated - use new format above)
   quantity?: number;
   leverage?: number;
   stopLoss?: number;
   takeProfit?: number;
-  reasoning: string; // Chain of Thought
-  confidence?: number;
-  riskRewardRatio?: number;
 }
 
 export interface DecisionLog {

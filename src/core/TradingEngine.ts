@@ -318,15 +318,35 @@ export class TradingEngine {
 
     // Priority 2: Open new positions
     for (const decision of openDecisions) {
-      if (!decision.symbol || decision.quantity === undefined || decision.leverage === undefined) {
+      if (!decision.symbol || (decision.position_size_usd === undefined && decision.quantity === undefined)) {
         continue;
       }
 
-      const requestedQuantity = Number(decision.quantity);
-      const leverage = Number(decision.leverage);
+      let requestedQuantity: number;
+      let leverage = 1; // Default leverage
+
+      // Calculate quantity from position_size_usd if provided
+      if (decision.position_size_usd !== undefined) {
+        // Get current price to calculate quantity
+        const currentPrice = await this.trader.getMarketPrice(decision.symbol);
+        if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+          console.log(`   ❌ Unable to fetch valid market price for ${decision.symbol}`);
+          results.push({
+            decision,
+            success: false,
+            error: 'Unable to fetch market price for position size calculation',
+            timestamp: Date.now(),
+          });
+          continue;
+        }
+        requestedQuantity = decision.position_size_usd / currentPrice;
+        console.log(`   💰 Position size: $${decision.position_size_usd}, Price: $${currentPrice.toFixed(2)}, Quantity: ${requestedQuantity.toFixed(6)}`);
+      } else {
+        requestedQuantity = Number(decision.quantity);
+      }
 
       if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
-        console.log(`   ⚠️  Skipping ${decision.symbol || 'unknown'} open: invalid quantity ${decision.quantity}`);
+        console.log(`   ⚠️  Skipping ${decision.symbol || 'unknown'} open: invalid quantity ${requestedQuantity}`);
         results.push({
           decision,
           success: false,
@@ -441,8 +461,8 @@ export class TradingEngine {
       const slTpValidation = this.riskManager.validateStopLossTakeProfit(
         side,
         currentPrice,
-        decision.stopLoss,
-        decision.takeProfit
+        decision.stop_loss,
+        decision.profit_target
       );
 
       if (!slTpValidation.valid) {
@@ -462,8 +482,8 @@ export class TradingEngine {
         side,
         finalQuantity,
         finalLeverage,
-        decision.stopLoss,
-        decision.takeProfit
+        decision.stop_loss,
+        decision.profit_target
       );
       results.push(result);
 
@@ -479,8 +499,8 @@ export class TradingEngine {
           leverage: finalLeverage,
           openTime: Date.now(),
           openOrderId: result.orderId,
-          stopLoss: decision.stopLoss,
-          takeProfit: decision.takeProfit,
+          stopLoss: decision.stop_loss,
+          takeProfit: decision.profit_target,
           status: 'open',
         });
         console.log(`   ✅ Opened successfully at $${result.executedPrice?.toFixed(2)}`);

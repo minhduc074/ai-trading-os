@@ -453,10 +453,9 @@ export class BinanceTrader extends BaseTrader {
         decision: {
           action: side === 'LONG' ? 'open_long' : 'open_short',
           symbol,
-          quantity: parseFloat(formattedQty),
-          leverage,
-          stopLoss,
-          takeProfit,
+          position_size_usd: parseFloat(formattedQty) * avgPrice, // Calculate position size from quantity and price
+          profit_target: takeProfit,
+          stop_loss: stopLoss,
           reasoning: '',
         },
         success: true,
@@ -472,10 +471,9 @@ export class BinanceTrader extends BaseTrader {
         decision: {
           action: side === 'LONG' ? 'open_long' : 'open_short',
           symbol,
-          quantity,
-          leverage,
-          stopLoss,
-          takeProfit,
+          position_size_usd: 0, // Not executed, so no position size
+          profit_target: takeProfit,
+          stop_loss: stopLoss,
           reasoning: '',
         },
         success: false,
@@ -595,6 +593,7 @@ export class BinanceTrader extends BaseTrader {
           action: side === 'LONG' ? 'close_long' : 'close_short',
           symbol,
           quantity: parseFloat(formattedQty),
+          position_size_usd: parseFloat(formattedQty) * avgPrice, // Calculate position size
           reasoning: '',
         },
         success: true,
@@ -611,6 +610,7 @@ export class BinanceTrader extends BaseTrader {
           action: side === 'LONG' ? 'close_long' : 'close_short',
           symbol,
           quantity: quantity || 0,
+          position_size_usd: 0, // Not executed
           reasoning: '',
         },
         success: false,

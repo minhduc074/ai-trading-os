@@ -630,7 +630,7 @@ export class AIDecisionEngine {
 
   private parseAIResponse(response: string): { decisions: TradingDecision[]; chainOfThought: string } {
     // Extract Chain of Thought (everything before JSON)
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    const jsonMatch = response.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
     
     let chainOfThought = response;
     let decisions: TradingDecision[] = [];
@@ -640,31 +640,49 @@ export class AIDecisionEngine {
       
       try {
         const parsed = JSON.parse(jsonMatch[0]);
-        decisions = Array.isArray(parsed) ? parsed : [parsed];
+        const decisionData = Array.isArray(parsed) ? parsed : [parsed];
         
         // Validate and clean decisions
-        decisions = decisions
+        decisions = decisionData
           .filter(d => d.action && ['close_long', 'close_short', 'open_long', 'open_short', 'hold', 'wait'].includes(d.action))
           .map(d => ({
             action: d.action,
             symbol: d.symbol,
-            quantity: d.quantity,
-            leverage: d.leverage,
-            stopLoss: d.stopLoss,
-            takeProfit: d.takeProfit,
-            reasoning: d.reasoning || '',
+            position_size_usd: d.position_size_usd,
+            profit_target: d.profit_target,
+            stop_loss: d.stop_loss,
+            invalidation_condition: d.invalidation_condition,
             confidence: d.confidence,
-            riskRewardRatio: d.stopLoss && d.takeProfit && d.symbol
-              ? this.calculateRiskReward(d.action, d.symbol, d.stopLoss, d.takeProfit)
-              : undefined,
+            risk_usd: d.risk_usd,
+            reasoning: d.reasoning || '',
           }));
       } catch (error) {
         console.error(`Failed to parse AI JSON: ${error}`);
-        decisions = [{ action: 'wait', reasoning: 'Failed to parse AI response' }];
+        decisions = [{ 
+          action: 'wait', 
+          symbol: undefined,
+          position_size_usd: 0,
+          profit_target: undefined,
+          stop_loss: undefined,
+          invalidation_condition: 'Failed to parse AI response',
+          confidence: 0,
+          risk_usd: 0,
+          reasoning: 'Failed to parse AI response' 
+        }];
       }
     } else {
       // No JSON found, default to wait
-      decisions = [{ action: 'wait', reasoning: 'No clear trading signals' }];
+      decisions = [{ 
+        action: 'wait', 
+        symbol: undefined,
+        position_size_usd: 0,
+        profit_target: undefined,
+        stop_loss: undefined,
+        invalidation_condition: 'No JSON response from AI',
+        confidence: 0,
+        risk_usd: 0,
+        reasoning: 'No clear trading signals' 
+      }];
     }
 
     return { decisions, chainOfThought };
