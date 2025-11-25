@@ -1,7 +1,7 @@
 import { ITrader } from '../exchanges/BaseTrader';
 import { MarketDataService } from '../services/MarketDataService';
 import { PerformanceTracker } from '../services/PerformanceTracker';
-import { AIDecisionEngine } from '../services/AIService';
+import { AIDecisionEngine } from '../services/AIService_v2';
 import { RiskManager } from './RiskManager';
 import { 
   TradingConfig, 

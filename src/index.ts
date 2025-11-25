@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { BinanceTrader } from './exchanges/BinanceTrader';
-import { AIDecisionEngine } from './services/AIService';
+import { AIDecisionEngine } from './services/AIService_v2';
 import { TradingEngine } from './core/TradingEngine';
 import { TradingConfig } from './types';
 import { startDashboardServer } from './dashboard/server';

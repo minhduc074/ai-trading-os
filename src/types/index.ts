@@ -91,7 +91,7 @@ export interface Kline {
 
 // Trading Decision Types
 export interface TradingDecision {
-  action: 'close_long' | 'close_short' | 'open_long' | 'open_short' | 'hold' | 'wait';
+  action: 'close_long' | 'close_short' | 'open_long' | 'open_short' | 'hold' | 'wait' | 'no_trade';
   symbol?: string;
   // New format fields
   position_size_usd?: number;
