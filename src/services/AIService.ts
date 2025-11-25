@@ -197,10 +197,10 @@ export class AIDecisionEngine {
       '{',
       '  "action": "close_long"|"close_short"|"open_long"|"open_short"|"hold"|"wait",',
       '  "symbol": "BTCUSDT",',
-      '  "quantity": 0.001,',
-      '  "leverage": 10,',
+      '  "position_size_usd": 1000,',
       '  "profit_target": 45000,',
       '  "stop_loss": 42000,',
+      '  "invalidation_condition": "Price drops below support level",',
       '  "confidence": 70,',
       '  "risk_usd": 20,',
       '  "reasoning": "RSI oversold + MACD bullish + 4h uptrend"',
@@ -569,14 +569,35 @@ export class AIDecisionEngine {
     prompt += `- Verify risk:reward ratio ≥1:2.5 for all new positions\n`;
     prompt += `- Confirm stop-loss placement won't trigger on normal volatility\n`;
     prompt += `- Ensure leverage is appropriate for current win rate\n\n`;
-    prompt += `Now provide your complete Chain of Thought analysis followed by your JSON decisions:`;
+    prompt += `Now provide your complete Chain of Thought analysis followed by your JSON decisions in a markdown code block:\n\n`;
+    prompt += `\`\`\`json\n`;
+    prompt += `[\n`;
+    prompt += `  {\n`;
+    prompt += `    "action": "open_long",\n`;
+    prompt += `    "symbol": "BCHUSDT",\n`;
+    prompt += `    "position_size_usd": 1000,\n`;
+    prompt += `    "profit_target": 450,\n`;
+    prompt += `    "stop_loss": 380,\n`;
+    prompt += `    "invalidation_condition": "Price drops below 400",\n`;
+    prompt += `    "confidence": 75,\n`;
+    prompt += `    "risk_usd": 60,\n`;
+    prompt += `    "reasoning": "3min MACD bull cross + hist expand, above EMA20"\n`;
+    prompt += `  }\n`;
+    prompt += `]\n`;
+    prompt += `\`\`\``;
 
     return prompt;
   }
 
   private parseAIResponse(response: string): { decisions: TradingDecision[]; chainOfThought: string } {
     // Extract Chain of Thought (everything before JSON)
-    const jsonMatch = response.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    // Look for JSON in markdown code blocks first, then raw JSON
+    let jsonMatch = response.match(/```(?:json)?\s*(\[[\s\S]*?\]|\{[\s\S]*?\})\s*```/);
+    
+    if (!jsonMatch) {
+      // Fallback to raw JSON matching
+      jsonMatch = response.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    }
     
     let chainOfThought = response;
     let decisions: TradingDecision[] = [];
@@ -585,7 +606,9 @@ export class AIDecisionEngine {
       chainOfThought = response.substring(0, jsonMatch.index).trim();
       
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
+        // Use the captured group (the actual JSON content)
+        const jsonContent = jsonMatch[1] || jsonMatch[0];
+        const parsed = JSON.parse(jsonContent);
         const decisionData = Array.isArray(parsed) ? parsed : [parsed];
         
         // Validate and clean decisions
