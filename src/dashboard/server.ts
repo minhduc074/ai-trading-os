@@ -28,6 +28,22 @@ export async function startDashboardServer(
     });
   });
 
+  app.post('/api/close-all-positions', async (req: Request, res: Response) => {
+    try {
+      const results = await tradingEngine.closeAllPositions();
+      res.json({
+        success: true,
+        message: `Closed ${results.filter(r => r.success).length}/${results.length} positions`,
+        data: results,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  });
+
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({
       success: true,
@@ -373,6 +389,12 @@ function getDashboardHTML(): string {
 
     <div class="status-card">
       <h2>� Open Positions</h2>
+      <div style="margin-bottom: 15px;">
+        <button id="closeAllBtn" style="background: #f04141; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+          🚨 Close All Positions
+        </button>
+        <span id="closeAllStatus" style="margin-left: 15px; font-size: 14px; color: #888;"></span>
+      </div>
       <div id="openPositionsTable" style="overflow-x: auto;">
         <p style="color: #666;">No open positions...</p>
       </div>
@@ -672,6 +694,48 @@ function getDashboardHTML(): string {
 
     // Initial connection
     connect();
+
+    // Close All Positions Button
+    document.getElementById('closeAllBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('closeAllBtn');
+      const status = document.getElementById('closeAllStatus');
+      
+      if (confirm('Are you sure you want to close ALL open positions? This action cannot be undone.')) {
+        btn.disabled = true;
+        btn.textContent = 'Closing...';
+        status.textContent = 'Processing...';
+        status.style.color = '#ffce00';
+        
+        try {
+          const response = await fetch('/api/close-all-positions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            status.textContent = result.message;
+            status.style.color = '#10dc60';
+            // Refresh data after a short delay
+            setTimeout(() => {
+              // The WebSocket will update the UI automatically
+            }, 1000);
+          } else {
+            status.textContent = 'Error: ' + result.message;
+            status.style.color = '#f04141';
+          }
+        } catch (error) {
+          status.textContent = 'Network error';
+          status.style.color = '#f04141';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🚨 Close All Positions';
+        }
+      }
+    });
   </script>
 </body>
 </html>`;
