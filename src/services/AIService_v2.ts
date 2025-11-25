@@ -64,7 +64,9 @@ export class AIDecisionEngine {
     return [
       'Role: You are a senior quantitative trading analyst specializing in cryptocurrency markets. Your expertise is in identifying high-probability long and short setups using multi-timeframe analysis, technical indicators, and market structure.',
       '',
-      'Objective: Analyze the provided market data and execute a single trading decision: either OPEN LONG, OPEN SHORT, or NO TRADE. Your decision must be based solely on the technical data provided.',
+      'Objective: Analyze the provided market data and execute trading decisions. You can OPEN LONG, OPEN SHORT, CLOSE LONG, CLOSE SHORT, or NO TRADE. If a position already exists and you want to adjust leverage or size, first CLOSE the existing position, then OPEN a new one with the desired leverage.',
+      '',
+      'Leverage Guidelines: Start with low leverage (1-3x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-2x (up to max 10x for altcoins, 5x for majors).',
       '',
       'Base your analysis only on the Input Data provided in the user prompt. Do not call external sources. If no high-confidence setup exists, return an empty list [].',
     ].join('\n');
@@ -118,7 +120,7 @@ export class AIDecisionEngine {
     lines.push('- Trade Thesis: Synthesize what the market is telling you.');
     lines.push('- Risk Assessment: State what would invalidate your trade.');
     lines.push('');
-    lines.push('FINAL JSON DECISION: Provide a single decision (open_long | open_short | no_trade). If no high-confidence setup exists, output [] (empty list).');
+    lines.push('FINAL JSON DECISION: Provide decisions as an array. Can include close_long, close_short, open_long, open_short, or no_trade. If no action needed, output [].');
     lines.push('');
     lines.push('Required JSON Format:');
     lines.push('```json');
@@ -127,6 +129,7 @@ export class AIDecisionEngine {
     lines.push('    "action": "open_long | open_short | no_trade",');
     lines.push('    "symbol": "BTCUSDT",');
     lines.push('    "position_size_usd": 1000,');
+    lines.push('    "leverage": 5,');
     lines.push('    "profit_target": 61500,');
     lines.push('    "stop_loss": 60800,');
     lines.push('    "invalidation_condition": "Price breaks and closes below the VWAP and 20 EMA confluence at 61000.",');
@@ -139,7 +142,7 @@ export class AIDecisionEngine {
     lines.push('');
     lines.push('Notes:');
     lines.push('- Confidence must be > 65 to propose a trade. If confidence is lower, return [].');
-    lines.push('- Provide a short, clear Chain of Thought and then the JSON decision in a markdown code block.');
+    lines.push('- Provide a short, clear Chain of Thought and then the JSON decisions in a markdown code block.');
     lines.push('');
     lines.push('Now provide your complete Chain of Thought analysis followed by your JSON decision (single entry) in a markdown code block.');
     return lines.join('\n');
@@ -189,51 +192,58 @@ export class AIDecisionEngine {
     const parsed = JSON.parse(candidate);
       const arr = Array.isArray(parsed) ? parsed : [parsed];
       if (arr.length === 0) return { decisions: [], chainOfThought };
-      const d = arr[0];
-      if (!d || !d.action) return { decisions: [], chainOfThought };
-      const action = String(d.action).toLowerCase();
-      if (action === 'no_trade') return { decisions: [], chainOfThought };
-      if (action === 'open_long' || action === 'open_short') {
-        const confidence = typeof d.confidence === 'number' ? d.confidence : (parseFloat(d.confidence) || 0);
-        if (confidence < 66) return { decisions: [], chainOfThought };
-        const symbol = d.symbol;
-        const market = marketData.find(m => m.symbol === symbol);
-        const entryPrice = market?.currentPrice;
-        const position_size_usd = Number(d.position_size_usd) || 0;
-        const stop_loss = d.stop_loss !== undefined ? Number(d.stop_loss) : undefined;
-        let risk_usd = d.risk_usd !== undefined ? Number(d.risk_usd) : undefined;
-        if (!risk_usd && entryPrice && stop_loss) {
-          const priceDiff = Math.abs(entryPrice - stop_loss);
-          risk_usd = Math.round(position_size_usd * (priceDiff / entryPrice));
+      
+      const decisions: TradingDecision[] = [];
+      for (const d of arr) {
+        if (!d || !d.action) continue;
+        const action = String(d.action).toLowerCase();
+        if (action === 'no_trade') continue;
+        
+        if (action === 'open_long' || action === 'open_short') {
+          const confidence = typeof d.confidence === 'number' ? d.confidence : (parseFloat(d.confidence) || 0);
+          if (confidence < 66) continue;
+          const symbol = d.symbol;
+          const market = marketData.find(m => m.symbol === symbol);
+          const entryPrice = market?.currentPrice;
+          const position_size_usd = Number(d.position_size_usd) || 0;
+          const stop_loss = d.stop_loss !== undefined ? Number(d.stop_loss) : undefined;
+          let risk_usd = d.risk_usd !== undefined ? Number(d.risk_usd) : undefined;
+          if (!risk_usd && entryPrice && stop_loss) {
+            const priceDiff = Math.abs(entryPrice - stop_loss);
+            risk_usd = Math.round(position_size_usd * (priceDiff / entryPrice));
+          }
+          const leverage = d.leverage !== undefined ? Number(d.leverage) : 1;
+          const mapped: TradingDecision = {
+            action: action as any,
+            symbol: d.symbol,
+            position_size_usd: position_size_usd || undefined,
+            leverage: leverage,
+            profit_target: d.profit_target !== undefined ? Number(d.profit_target) : undefined,
+            stop_loss: stop_loss !== undefined ? Number(stop_loss) : undefined,
+            invalidation_condition: d.invalidation_condition || undefined,
+            confidence: confidence,
+            risk_usd: risk_usd !== undefined ? Number(risk_usd) : undefined,
+            reasoning: d.reasoning || '',
+          };
+          decisions.push(mapped);
+        } else if (['wait', 'hold', 'close_long', 'close_short'].includes(action)) {
+          const mapped: TradingDecision = {
+            action: action as any,
+            symbol: d.symbol,
+            position_size_usd: d.position_size_usd || undefined,
+            leverage: d.leverage !== undefined ? Number(d.leverage) : undefined,
+            profit_target: d.profit_target || undefined,
+            stop_loss: d.stop_loss || undefined,
+            invalidation_condition: d.invalidation_condition || undefined,
+            confidence: d.confidence || undefined,
+            risk_usd: d.risk_usd || undefined,
+            reasoning: d.reasoning || '',
+          };
+          decisions.push(mapped);
         }
-        const mapped: TradingDecision = {
-          action: action as any,
-          symbol: d.symbol,
-          position_size_usd: position_size_usd || undefined,
-          profit_target: d.profit_target !== undefined ? Number(d.profit_target) : undefined,
-          stop_loss: stop_loss !== undefined ? Number(stop_loss) : undefined,
-          invalidation_condition: d.invalidation_condition || undefined,
-          confidence: confidence,
-          risk_usd: risk_usd !== undefined ? Number(risk_usd) : undefined,
-          reasoning: d.reasoning || '',
-        };
-        return { decisions: [mapped], chainOfThought };
       }
-      if (['wait', 'hold', 'close_long', 'close_short'].includes(action)) {
-        const mapped: TradingDecision = {
-          action: action as any,
-          symbol: d.symbol,
-          position_size_usd: d.position_size_usd || undefined,
-          profit_target: d.profit_target || undefined,
-          stop_loss: d.stop_loss || undefined,
-          invalidation_condition: d.invalidation_condition || undefined,
-          confidence: d.confidence || undefined,
-          risk_usd: d.risk_usd || undefined,
-          reasoning: d.reasoning || '',
-        };
-        return { decisions: [mapped], chainOfThought };
-      }
-      return { decisions: [], chainOfThought };
+      
+      return { decisions, chainOfThought };
     } catch (e) {
   console.error('Failed to parse AI JSON:', e);
   console.error('JSON candidate that failed parse:', found ? (found.candidate) : 'N/A');

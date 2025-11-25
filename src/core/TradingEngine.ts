@@ -323,7 +323,7 @@ export class TradingEngine {
       }
 
       let requestedQuantity: number;
-      let leverage = 1; // Default leverage
+      let leverage = decision.leverage || 1; // Use leverage from decision or default to 1
 
       // Calculate quantity from position_size_usd if provided
       if (decision.position_size_usd !== undefined) {
