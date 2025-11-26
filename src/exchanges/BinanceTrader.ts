@@ -503,6 +503,8 @@ export class BinanceTrader extends BaseTrader {
           positionSide: side,
           type: 'STOP_MARKET',
           stopPrice: formattedStopLoss,
+          reduceOnly: true,
+          workingType: 'MARK_PRICE',
           quantity: formattedQty,
           timestamp,
         };
@@ -525,6 +527,8 @@ export class BinanceTrader extends BaseTrader {
           positionSide: side,
           type: 'TAKE_PROFIT_MARKET',
           stopPrice: formattedTakeProfit,
+          reduceOnly: true,
+          workingType: 'MARK_PRICE',
           quantity: formattedQty,
           timestamp,
         };

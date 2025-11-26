@@ -7,7 +7,9 @@ import {
   TradingConfig, 
   DecisionLog, 
   ExecutionResult,
-  TradingDecision 
+  TradingDecision,
+  Position,
+  AccountInfo
 } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -56,6 +58,61 @@ export class TradingEngine {
     this.riskManager = new RiskManager(config);
 
     console.log(`Trading Engine initialized for trader: ${traderId}`);
+  }
+
+  /**
+   * Auto-close positions when the recorded take-profit target is reached.
+   * This helps ensure positions are closed even if an exchange TP order is missing or failed.
+   */
+  private async autoClosePositionsByTakeProfit(existingPositions: Position[], accountInfo: AccountInfo): Promise<void> {
+    if (!existingPositions || existingPositions.length === 0) return;
+
+    for (const pos of existingPositions) {
+      try {
+        const openTrade = await this.performanceTracker.getOpenTrade(pos.symbol, pos.side);
+        if (!openTrade || openTrade.takeProfit === null || openTrade.takeProfit === undefined) continue;
+        const tp = Number(openTrade.takeProfit);
+        const currentPrice = pos.currentPrice;
+
+        const reachedTP = (pos.side === 'LONG' && currentPrice >= tp) || (pos.side === 'SHORT' && currentPrice <= tp);
+        if (!reachedTP) continue;
+
+        // Check for an existing exchange TP order; if it's present and matches the TP price, skip manual close.
+        const openOrders = await this.trader.getOpenOrders(pos.symbol);
+        const hasTPOrder = openOrders.some(o =>
+          o.type === 'TAKE_PROFIT_MARKET' && o.positionSide === pos.side && o.stopPrice !== undefined && Math.abs((o.stopPrice as number) - tp) < 1e-6
+        );
+
+        if (hasTPOrder) {
+          console.log(`   ↪ Exchange has TP order for ${pos.symbol} ${pos.side} @ ${tp} — skipping manual close`);
+          continue;
+        }
+
+        // Risk check before closing
+        const closeCheck = await this.riskManager.checkClosePosition(pos.symbol, pos.side, accountInfo);
+        if (!closeCheck.allowed) {
+          console.log(`   ⚠️ Auto-close blocked for ${pos.symbol}: ${closeCheck.reason}`);
+          continue;
+        }
+
+        console.log(`   🎯 Auto-closing ${pos.symbol} ${pos.side} due to take-profit reached (${currentPrice} >= ${tp})`);
+        const closeResult = await this.trader.closePosition(pos.symbol, pos.side, pos.quantity);
+        if (closeResult.success) {
+          await this.performanceTracker.recordCloseTrade(
+            pos.symbol,
+            pos.side,
+            closeResult.executedPrice ?? currentPrice,
+            closeResult.orderId,
+            'take_profit'
+          );
+        } else {
+          console.log(`   ❌ Auto-close failed for ${pos.symbol}: ${closeResult.error}`);
+        }
+      } catch (err: any) {
+        console.log(`   ❌ Error while auto-closing for ${pos.symbol}: ${err.message}`);
+        continue;
+      }
+    }
   }
 
   /**
@@ -157,6 +214,9 @@ export class TradingEngine {
       const positionMarketData = existingPositions.length > 0
         ? await this.marketDataService.getMarketDataForPositions(existingPositions)
         : new Map();
+
+      // Auto-close positions that reached their take-profit target
+      await this.autoClosePositionsByTakeProfit(existingPositions, accountInfo);
 
       // Step 4: Evaluate New Opportunities
       console.log('\n🎯 Step 4: Evaluating new opportunities...');

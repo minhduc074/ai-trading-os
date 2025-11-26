@@ -191,6 +191,52 @@ export class PerformanceTracker {
   }
 
   /**
+   * Get the most recent open trade for a symbol/side.
+   */
+  async getOpenTrade(symbol: string, side: 'LONG' | 'SHORT'): Promise<TradeRecord | null> {
+    return new Promise((resolve, reject) => {
+      const symbolSide = `${symbol}_${side}`;
+      this.db.get(
+        `SELECT * FROM trades WHERE trader_id = ? AND symbol_side = ? AND status = 'open' ORDER BY open_time DESC LIMIT 1`,
+        [this.traderId, symbolSide],
+        (err, row: any) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (!row) {
+            resolve(null);
+            return;
+          }
+          const rec: TradeRecord = {
+            id: row.id,
+            traderId: row.trader_id,
+            symbol: row.symbol,
+            side: row.side,
+            symbolSide: row.symbol_side,
+            entryPrice: row.entry_price,
+            quantity: row.quantity,
+            leverage: row.leverage,
+            openTime: row.open_time,
+            openOrderId: row.open_order_id,
+            exitPrice: row.exit_price,
+            closeTime: row.close_time,
+            closeOrderId: row.close_order_id,
+            pnl: row.pnl,
+            pnlPercent: row.pnl_percent,
+            holdingDuration: row.holding_duration,
+            stopLoss: row.stop_loss,
+            takeProfit: row.take_profit,
+            status: row.status,
+            closeReason: row.close_reason,
+          };
+          resolve(rec);
+        }
+      );
+    });
+  }
+
+  /**
    * Get historical feedback for AI learning
    */
   async getHistoricalFeedback(cyclesCount: number = 20): Promise<HistoricalFeedback> {
