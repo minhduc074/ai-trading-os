@@ -314,7 +314,7 @@ export class TradingEngine {
   /**
    * Execute trading decisions with priority and risk checks
    */
-  private async executeDecisions(
+  async executeDecisions(
     decisions: TradingDecision[],
     accountInfo: any
   ): Promise<ExecutionResult[]> {
@@ -383,7 +383,7 @@ export class TradingEngine {
       }
 
       let requestedQuantity: number;
-      let leverage = 1; // Default leverage
+      let leverage = decision.leverage || 1; // Use leverage from decision or default to 1
 
       // Calculate quantity from position_size_usd if provided
       if (decision.position_size_usd !== undefined) {
@@ -720,5 +720,36 @@ export class TradingEngine {
       recentActions: this.recentActions.slice(-20), // Last 20 actions
       cycleHistory: this.cycleHistory.slice(-50), // Last 50 cycles
     };
+  }
+
+  /**
+   * Close all open positions
+   */
+  async closeAllPositions(): Promise<ExecutionResult[]> {
+    console.log('\n🛑 Closing all open positions...');
+
+    // Get current account info
+    const accountInfo = await this.trader.getAccountInfo();
+    const positions = accountInfo.positions;
+
+    if (positions.length === 0) {
+      console.log('   No open positions to close');
+      return [];
+    }
+
+    console.log(`   Found ${positions.length} open positions to close`);
+
+    // Create close decisions for each position
+    const closeDecisions: TradingDecision[] = positions.map(pos => ({
+      action: pos.side === 'LONG' ? 'close_long' : 'close_short',
+      symbol: pos.symbol,
+      reasoning: 'Manual close all positions command',
+    }));
+
+    // Execute the close decisions
+    const results = await this.executeDecisions(closeDecisions, accountInfo);
+
+    console.log(`   Closed ${results.filter(r => r.success).length}/${results.length} positions successfully`);
+    return results;
   }
 }
