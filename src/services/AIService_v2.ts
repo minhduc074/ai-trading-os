@@ -71,7 +71,7 @@ export class AIDecisionEngine {
       '- Never risk more than 1% of account equity per trade',
       '- Require strong multi-timeframe confirmation before entry',
       '',
-      'Leverage Guidelines: Start with low leverage (1-3x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-2x (up to max 5x for altcoins, 3x for majors).',
+      'Leverage Guidelines: Start with low leverage (1-25x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-25x (up to max 5x for altcoins, 30x for majors).',
       '',
       'Base your analysis only on the Input Data provided in the user prompt. Do not call external sources. If no high-confidence setup exists, return an empty list [].',
     ].join('\n');
@@ -155,7 +155,7 @@ export class AIDecisionEngine {
     lines.push('');
     lines.push('Notes:');
     lines.push('- Confidence must be > 75 to propose a trade. Only trade high-probability setups with clear risk management.');
-    lines.push('- Leverage: Use conservative 3x maximum for new positions.');
+    lines.push('- Leverage: Use conservative 20x maximum for new positions.');
     lines.push('- Risk Management: Never risk more than 1% of account equity per trade.');
     lines.push('- Provide a concise Chain of Thought and then the JSON decisions in a markdown code block.');
     lines.push('');
