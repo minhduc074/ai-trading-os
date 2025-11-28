@@ -66,7 +66,13 @@ export class AIDecisionEngine {
       '',
       'Objective: Analyze the provided market data and execute trading decisions. You can OPEN LONG, OPEN SHORT, CLOSE LONG, CLOSE SHORT, or NO TRADE. If a position already exists and you want to adjust leverage or size, first CLOSE the existing position, then OPEN a new one with the desired leverage.',
       '',
-      'Leverage Guidelines: Start with low leverage (1-3x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-2x (up to max 10x for altcoins, 5x for majors).',
+      'Risk Management Guidelines:',
+      '- Only trade when confidence > 75 and risk-reward ratio > 2:1',
+      '- Use conservative leverage (1-25x) for new positions',
+      '- Never risk more than 1% of account equity per trade',
+      '- Require strong multi-timeframe confirmation before entry',
+      '',
+      'Leverage Guidelines: Start with low leverage (1-3x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-2x (up to max 5x for altcoins, 3x for majors).',
       '',
       'Base your analysis only on the Input Data provided in the user prompt. Do not call external sources. If no high-confidence setup exists, return an empty list [].',
     ].join('\n');
@@ -79,7 +85,7 @@ export class AIDecisionEngine {
     existingPositions: Position[]
   ): string {
     const lines: string[] = [];
-    lines.push('# Trading Decision - Single Decision Protocol');
+    lines.push('# Trading Decision - Conservative Risk Management Protocol');
     lines.push('');
     lines.push(`Context: Win Rate ${historicalFeedback.winRate.toFixed(1)}% | Equity $${accountInfo.totalEquity.toFixed(2)} | Positions ${accountInfo.totalPositions}`);
     lines.push('');
@@ -90,11 +96,11 @@ export class AIDecisionEngine {
       lines.push('Timeframe: 3-minute (entry) / 4-hour (trend)');
       lines.push(`Current Price: $${data.currentPrice.toFixed(2)}`);
       if (data.indicators3m.priceSequence && data.indicators3m.priceSequence.length > 0) {
-        const seq = data.indicators3m.priceSequence.slice(-50);
+        const seq = data.indicators3m.priceSequence.slice(-30);
         lines.push(`Data (3m closes, last ${seq.length}): [${seq.map(p => p.toFixed(2)).join(', ')}]`);
       }
       if (data.indicators4h.priceSequence && data.indicators4h.priceSequence.length > 0) {
-        const seq4 = data.indicators4h.priceSequence.slice(-50);
+        const seq4 = data.indicators4h.priceSequence.slice(-30);
         lines.push(`Data (4h closes, last ${seq4.length}): [${seq4.map(p => p.toFixed(2)).join(', ')}]`);
       }
       lines.push('Indicator Values:');
@@ -113,12 +119,12 @@ export class AIDecisionEngine {
     }
     lines.push('OUTPUT INSTRUCTIONS:');
     lines.push('Chain of Thought Analysis:');
-    lines.push('- Market Structure: Identify short-term and medium-term trend (e.g., HH/HL or LH/LL).');
-    lines.push('- Key Levels: Identify the most critical support and resistance from the provided data.');
-    lines.push('- Indicator Analysis: Interpret current EMAs, RSI, MACD, VWAP alignment or divergence.');
-    lines.push('- Price-Action & Volume: Comment on recent candles and volume behavior.');
-    lines.push('- Trade Thesis: Synthesize what the market is telling you.');
-    lines.push('- Risk Assessment: State what would invalidate your trade.');
+    lines.push('- Market Structure: Identify clear trend direction (bullish/bearish/sideways) with multi-timeframe confirmation.');
+    lines.push('- Key Levels: Identify critical support/resistance levels and current price position relative to them.');
+    lines.push('- Indicator Analysis: Assess EMA alignment, RSI levels, and MACD momentum with clear bullish/bearish signals.');
+    lines.push('- Risk-Reward: Calculate minimum 2:1 reward-to-risk ratio before considering entry.');
+    lines.push('- Trade Thesis: Only propose trades with strong confluence of factors and clear invalidation points.');
+    lines.push('- Risk Assessment: Define strict stop loss levels and maximum acceptable risk per trade.');
     lines.push('');
     lines.push('FINAL JSON DECISION: Provide decisions as an array. Can include close_long, close_short, open_long, open_short, or no_trade. If no action needed, output [].');
     lines.push('');
@@ -129,22 +135,24 @@ export class AIDecisionEngine {
     lines.push('    "action": "open_long | open_short | no_trade",');
     lines.push('    "symbol": "BTCUSDT",');
     lines.push('    "position_size_usd": 1000,');
-    lines.push('    "leverage": 5,');
+    lines.push('    "leverage": 3,');
     lines.push('    "profit_target": 61500,');
     lines.push('    "stop_loss": 60800,');
-    lines.push('    "invalidation_condition": "Price breaks and closes below the VWAP and 20 EMA confluence at 61000.",');
-    lines.push('    "confidence": 75,');
-    lines.push('    "risk_usd": 45,');
-    lines.push('    "reasoning": "Bullish MACD crossover on rising volume, price holding above key VWAP support. Targeting next resistance level."');
+    lines.push('    "invalidation_condition": "Price breaks and closes below EMA20_3m at $61000.",');
+    lines.push('    "confidence": 80,');
+    lines.push('    "risk_usd": 30,');
+    lines.push('    "reasoning": "Strong bullish EMA alignment with MACD momentum. 2:1 risk-reward ratio."');
     lines.push('  }');
     lines.push(']');
     lines.push('```');
     lines.push('');
     lines.push('Notes:');
-    lines.push('- Confidence must be > 65 to propose a trade. If confidence is lower, return [].');
-    lines.push('- Provide a short, clear Chain of Thought and then the JSON decisions in a markdown code block.');
+    lines.push('- Confidence must be > 75 to propose a trade. Only trade high-probability setups with clear risk management.');
+    lines.push('- Leverage: Use conservative 3x maximum for new positions.');
+    lines.push('- Risk Management: Never risk more than 1% of account equity per trade.');
+    lines.push('- Provide a concise Chain of Thought and then the JSON decisions in a markdown code block.');
     lines.push('');
-    lines.push('Now provide your complete Chain of Thought analysis followed by your JSON decision (single entry) in a markdown code block.');
+    lines.push('Now provide your complete Chain of Thought analysis followed by your JSON decision in a markdown code block.');
     return lines.join('\n');
   }
 
@@ -201,7 +209,7 @@ export class AIDecisionEngine {
         
         if (action === 'open_long' || action === 'open_short') {
           const confidence = typeof d.confidence === 'number' ? d.confidence : (parseFloat(d.confidence) || 0);
-          if (confidence < 66) continue;
+          if (confidence < 76) continue;
           const symbol = d.symbol;
           const market = marketData.find(m => m.symbol === symbol);
           const entryPrice = market?.currentPrice;
@@ -245,15 +253,9 @@ export class AIDecisionEngine {
       
       return { decisions, chainOfThought };
     } catch (e) {
-  console.error('Failed to parse AI JSON:', e);
-  console.error('JSON candidate that failed parse:', found ? (found.candidate) : 'N/A');
+      console.error('Failed to parse AI JSON:', e);
+      console.error('JSON candidate that failed parse:', found ? (found.candidate) : 'N/A');
       return { decisions: [], chainOfThought };
     }
-  }
-
-  private calculateRiskReward(action: string, symbol: string, stopLoss: number, takeProfit: number): number {
-    const risk = Math.abs(stopLoss - takeProfit) / 2 || 1;
-    const reward = Math.abs(stopLoss - takeProfit) / 2 || 1;
-    return reward / risk;
   }
 }
