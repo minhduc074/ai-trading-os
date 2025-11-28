@@ -33,7 +33,6 @@ export class AIDecisionEngine {
     existingPositions: Position[]
   ): Promise<{ decisions: TradingDecision[]; chainOfThought: string; fullPrompt: string }> {
     const coinSymbols = marketData.map(d => d.symbol);
-    console.log(`[AI Decision] Sending ${coinSymbols.length} coins to AI: ${coinSymbols.join(', ')}`);
     const prompt = this.buildPrompt(accountInfo, marketData, historicalFeedback, existingPositions);
     try {
       const callOptions: any = {
@@ -91,6 +90,14 @@ export class AIDecisionEngine {
     lines.push('');
     lines.push(`Candidates: ${marketData.length}`);
     lines.push('');
+
+    if (existingPositions.length > 0) {
+      lines.push('Existing Positions:');
+      for (const pos of existingPositions) {
+        lines.push(`- ${pos.symbol} ${pos.side}: Qty ${pos.quantity.toFixed(4)}, Entry $${pos.entryPrice.toFixed(2)}, Current $${pos.currentPrice.toFixed(2)}, P&L ${pos.unrealizedPnlPercent.toFixed(2)}%, Leverage ${pos.leverage}x`);
+      }
+      lines.push('');
+    }
     for (const data of marketData) {
       lines.push(`Symbol: ${data.symbol}`);
       lines.push('Timeframe: 3-minute (entry) / 4-hour (trend)');
@@ -132,7 +139,7 @@ export class AIDecisionEngine {
     lines.push('```json');
     lines.push('[');
     lines.push('  {');
-    lines.push('    "action": "open_long | open_short | no_trade",');
+    lines.push('    "action": "open_long | open_short | close_long | close_short | no_trade",');
     lines.push('    "symbol": "BTCUSDT",');
     lines.push('    "position_size_usd": 1000,');
     lines.push('    "leverage": 3,');
@@ -158,6 +165,9 @@ export class AIDecisionEngine {
 
   private parseAIResponse(response: string, marketData: MarketData[]): { decisions: TradingDecision[]; chainOfThought: string } {
     // Helper: Extract JSON candidate and its index from response. Handles fenced codeblocks and nested brackets.
+    
+    console.debug('AI Response:', response);
+    
     const extractJSONCandidate = (text: string): { candidate: string; index: number } | null => {
       // 1) If there is a fenced code block, capture full content between the first pair of ``` fences
       const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -207,7 +217,7 @@ export class AIDecisionEngine {
         const action = String(d.action).toLowerCase();
         if (action === 'no_trade') continue;
         
-        if (action === 'open_long' || action === 'open_short') {
+        if (action === 'open_long' || action === 'open_short' || action === 'close_long' || action === 'close_short') {
           const confidence = typeof d.confidence === 'number' ? d.confidence : (parseFloat(d.confidence) || 0);
           if (confidence < 76) continue;
           const symbol = d.symbol;
