@@ -61,19 +61,41 @@ export class AIDecisionEngine {
 
   private getSystemPrompt(): string {
     return [
-      'Role: You are a senior quantitative trading analyst specializing in cryptocurrency markets. Your expertise is in identifying high-probability long and short setups using multi-timeframe analysis, technical indicators, and market structure.',
+      'Role: You are a conservative quantitative trading analyst specializing in cryptocurrency markets. Your PRIMARY goal is CAPITAL PRESERVATION. You only take trades with exceptional setups.',
       '',
-      'Objective: Analyze the provided market data and execute trading decisions. You can OPEN LONG, OPEN SHORT, CLOSE LONG, CLOSE SHORT, or NO TRADE. If a position already exists and you want to adjust leverage or size, first CLOSE the existing position, then OPEN a new one with the desired leverage.',
+      'CRITICAL MINDSET: It is better to miss 10 good trades than to take 1 bad trade. Losing money is UNACCEPTABLE. When in doubt, DO NOT TRADE.',
       '',
-      'Risk Management Guidelines:',
-      '- Only trade when confidence > 75 and risk-reward ratio > 2:1',
-      '- Use conservative leverage (1-25x) for new positions',
-      '- Never risk more than 1% of account equity per trade',
-      '- Require strong multi-timeframe confirmation before entry',
+      'Objective: Analyze market data and execute ONLY high-probability trades. Actions: OPEN LONG, OPEN SHORT, CLOSE LONG, CLOSE SHORT, or NO TRADE (default).',
       '',
-      'Leverage Guidelines: Start with low leverage (1-25x) for new positions. If reopening a position that was recently closed due to stop-loss or take-profit, increase leverage by 1-25x (up to max 5x for altcoins, 30x for majors).',
+      '⚠️ STRICT RISK MANAGEMENT (NEVER VIOLATE):',
+      '- Confidence MUST be >= 85% (not 75%)',
+      '- Risk-Reward ratio MUST be >= 3:1 (not 2:1)',
+      '- Maximum leverage: 5x for altcoins, 10x for BTC/ETH',
+      '- Maximum risk per trade: 0.5% of account equity',
+      '- NEVER trade against the 4H trend direction',
+      '- NEVER trade in sideways/choppy markets (RSI 40-60 on 4H)',
+      '- If win rate < 50%, reduce position sizes by 50%',
+      '- If account is down > 5% today, STOP TRADING (return [])',
       '',
-      'Base your analysis only on the Input Data provided in the user prompt. Do not call external sources. If no high-confidence setup exists, return an empty list [].',
+      'TREND RULES (MANDATORY):',
+      '- LONG only when: Price > EMA20_4h > EMA50_4h (uptrend)',
+      '- SHORT only when: Price < EMA20_4h < EMA50_4h (downtrend)',
+      '- NO TRADE when EMAs are flat or crossing (consolidation)',
+      '',
+      'ENTRY CONFIRMATION REQUIRED (ALL must be true):',
+      '- 4H trend aligned with trade direction',
+      '- 3m pullback to support/resistance level',
+      '- RSI not overbought (>70) for longs or oversold (<30) for shorts',
+      '- MACD histogram confirming momentum direction',
+      '- Clear stop loss level with < 1% distance from entry',
+      '',
+      'POSITION MANAGEMENT:',
+      '- Close winning trades at 2:1 profit minimum, let winners run to 3:1',
+      '- Close losing trades IMMEDIATELY if stop loss is hit',
+      '- If position is -1% or worse, CLOSE IT (cut losses fast)',
+      '- If position is +2% or better, consider partial profit taking',
+      '',
+      'DEFAULT ACTION: Return empty array [] unless setup is PERFECT. Missing trades is fine, losing money is not.',
     ].join('\n');
   }
 
@@ -84,17 +106,30 @@ export class AIDecisionEngine {
     existingPositions: Position[]
   ): string {
     const lines: string[] = [];
-    lines.push('# Trading Decision - Conservative Risk Management Protocol');
+    lines.push('# Trading Decision - CAPITAL PRESERVATION FIRST');
     lines.push('');
-    lines.push(`Context: Win Rate ${historicalFeedback.winRate.toFixed(1)}% | Equity $${accountInfo.totalEquity.toFixed(2)} | Positions ${accountInfo.totalPositions}`);
+    lines.push('⚠️ REMINDER: It is better to miss trades than to lose money. Default action is NO TRADE.');
     lines.push('');
-    lines.push(`Candidates: ${marketData.length}`);
+    const winRateWarning = historicalFeedback.winRate < 50 ? ' ⚠️ LOW WIN RATE - BE EXTRA CAUTIOUS' : '';
+    lines.push(`Context: Win Rate ${historicalFeedback.winRate.toFixed(1)}%${winRateWarning} | Equity $${accountInfo.totalEquity.toFixed(2)} | Open Positions ${accountInfo.totalPositions}`);
+    lines.push('');
+    if (historicalFeedback.winRate < 40) {
+      lines.push('🚨 CRITICAL: Win rate below 40%. Only take PERFECT setups with 90%+ confidence.');
+      lines.push('');
+    }
+    lines.push(`Analyzing ${marketData.length} candidates - reject any that don\'t meet ALL criteria.`);
     lines.push('');
 
     if (existingPositions.length > 0) {
-      lines.push('Existing Positions:');
+      lines.push('📊 EXISTING POSITIONS (Review for exit signals):');
       for (const pos of existingPositions) {
-        lines.push(`- ${pos.symbol} ${pos.side}: Qty ${pos.quantity.toFixed(4)}, Entry $${pos.entryPrice.toFixed(2)}, Current $${pos.currentPrice.toFixed(2)}, P&L ${pos.unrealizedPnlPercent.toFixed(2)}%, Leverage ${pos.leverage}x`);
+        const pnl = pos.unrealizedPnlPercent;
+        let action = '';
+        if (pnl <= -1) action = ' 🚨 CONSIDER CLOSING - Loss exceeds 1%';
+        else if (pnl <= -0.5) action = ' ⚠️ WATCH CLOSELY - Approaching stop';
+        else if (pnl >= 3) action = ' ✅ TAKE PROFIT - 3:1 reached';
+        else if (pnl >= 2) action = ' 💰 Consider partial profit';
+        lines.push(`- ${pos.symbol} ${pos.side}: Entry $${pos.entryPrice.toFixed(2)}, Current $${pos.currentPrice.toFixed(2)}, P&L ${pnl.toFixed(2)}%, Lev ${pos.leverage}x${action}`);
       }
       lines.push('');
     }
@@ -125,41 +160,50 @@ export class AIDecisionEngine {
       lines.push('');
     }
     lines.push('OUTPUT INSTRUCTIONS:');
-    lines.push('Chain of Thought Analysis:');
-    lines.push('- Market Structure: Identify clear trend direction (bullish/bearish/sideways) with multi-timeframe confirmation.');
-    lines.push('- Key Levels: Identify critical support/resistance levels and current price position relative to them.');
-    lines.push('- Indicator Analysis: Assess EMA alignment, RSI levels, and MACD momentum with clear bullish/bearish signals.');
-    lines.push('- Risk-Reward: Calculate minimum 2:1 reward-to-risk ratio before considering entry.');
-    lines.push('- Trade Thesis: Only propose trades with strong confluence of factors and clear invalidation points.');
-    lines.push('- Risk Assessment: Define strict stop loss levels and maximum acceptable risk per trade.');
     lines.push('');
-    lines.push('FINAL JSON DECISION: Provide decisions as an array. Can include close_long, close_short, open_long, open_short, or no_trade. If no action needed, output [].');
+    lines.push('STEP 1 - TREND CHECK (If ANY fail, return []):');
+    lines.push('- Is 4H trend clear? (Price vs EMA20 vs EMA50 aligned)');
+    lines.push('- Is RSI_4H NOT in neutral zone (40-60)?');
+    lines.push('- Is there clear momentum (MACD histogram growing)?');
     lines.push('');
-    lines.push('Required JSON Format:');
+    lines.push('STEP 2 - ENTRY VALIDATION (ALL must pass):');
+    lines.push('- Is there a pullback to a key level on 3m?');
+    lines.push('- Is risk-reward >= 3:1?');
+    lines.push('- Is stop loss < 1% from entry?');
+    lines.push('- Is confidence >= 85%?');
+    lines.push('');
+    lines.push('STEP 3 - POSITION REVIEW:');
+    lines.push('- Any position with P&L <= -1%? → CLOSE IT');
+    lines.push('- Any position with P&L >= +3%? → TAKE PROFIT');
+    lines.push('');
+    lines.push('FINAL JSON DECISION: Return [] unless setup is PERFECT.');
+    lines.push('');
+    lines.push('JSON Format:');
     lines.push('```json');
     lines.push('[');
     lines.push('  {');
-    lines.push('    "action": "open_long | open_short | close_long | close_short | no_trade",');
+    lines.push('    "action": "open_long | open_short | close_long | close_short",');
     lines.push('    "symbol": "BTCUSDT",');
-    lines.push('    "position_size_usd": 1000,');
-    lines.push('    "leverage": 3,');
+    lines.push('    "position_size_usd": 500,');
+    lines.push('    "leverage": 5,');
     lines.push('    "profit_target": 61500,');
     lines.push('    "stop_loss": 60800,');
-    lines.push('    "invalidation_condition": "Price breaks and closes below EMA20_3m at $61000.",');
-    lines.push('    "confidence": 80,');
-    lines.push('    "risk_usd": 30,');
-    lines.push('    "reasoning": "Strong bullish EMA alignment with MACD momentum. 2:1 risk-reward ratio."');
+    lines.push('    "invalidation_condition": "Price closes below EMA20_3m",');
+    lines.push('    "confidence": 88,');
+    lines.push('    "risk_usd": 25,');
+    lines.push('    "reasoning": "4H uptrend confirmed. 3m pullback to EMA20 support. RSI bouncing from 45. 3.5:1 R:R."');
     lines.push('  }');
     lines.push(']');
     lines.push('```');
     lines.push('');
-    lines.push('Notes:');
-    lines.push('- Confidence must be > 75 to propose a trade. Only trade high-probability setups with clear risk management.');
-    lines.push('- Leverage: Use conservative 20x maximum for new positions.');
-    lines.push('- Risk Management: Never risk more than 1% of account equity per trade.');
-    lines.push('- Provide a concise Chain of Thought and then the JSON decisions in a markdown code block.');
+    lines.push('STRICT RULES:');
+    lines.push('- Confidence MUST be >= 85 (not 75)');
+    lines.push('- Leverage: MAX 5x altcoins, MAX 10x BTC/ETH');
+    lines.push('- Risk: MAX 0.5% of equity per trade');
+    lines.push('- Risk-Reward: MINIMUM 3:1');
+    lines.push('- If unsure, return [] - missing trades is OK, losing money is NOT');
     lines.push('');
-    lines.push('Now provide your complete Chain of Thought analysis followed by your JSON decision in a markdown code block.');
+    lines.push('Provide brief analysis then JSON. Default to [] if ANY doubt exists.');
     return lines.join('\n');
   }
 
@@ -219,7 +263,10 @@ export class AIDecisionEngine {
         
         if (action === 'open_long' || action === 'open_short' || action === 'close_long' || action === 'close_short') {
           const confidence = typeof d.confidence === 'number' ? d.confidence : (parseFloat(d.confidence) || 0);
-          if (confidence < 76) continue;
+          // Require 85%+ confidence for new positions, 70%+ for closing (to protect capital)
+          const isCloseAction = action === 'close_long' || action === 'close_short';
+          const minConfidence = isCloseAction ? 70 : 85;
+          if (confidence < minConfidence) continue;
           const symbol = d.symbol;
           const market = marketData.find(m => m.symbol === symbol);
           const entryPrice = market?.currentPrice;
