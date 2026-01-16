@@ -143,10 +143,10 @@ export class TradingEngine {
     };
   }
 
-  async executeDecision(decision: AIDecision): Promise<{ success: boolean; error?: string }> {
+  async executeDecision(decision: AIDecision): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
-      if (decision.action === 'HOLD') {
-        return { success: true };
+      if (decision.action === 'HOLD' || decision.action === 'WAIT') {
+        return { success: true, message: 'No action taken - WAIT/HOLD' };
       }
 
       if (decision.action === 'CLOSE_LONG' || decision.action === 'CLOSE_SHORT') {
@@ -164,7 +164,7 @@ export class TradingEngine {
         );
       }
 
-      return { success: true };
+      return { success: true, message: 'Unknown action' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Execution error:', errorMessage);

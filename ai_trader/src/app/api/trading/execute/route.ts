@@ -7,7 +7,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log(`\n[${new Date().toISOString()}] ===== EXECUTING TRADE =====`);
     const decision: AIDecision = await request.json();
     const result = await tradingEngine.executeDecision(decision);
-    console.log(`[${new Date().toISOString()}] Execution result: ${result.message}`);
+    console.log(`[${new Date().toISOString()}] Execution result:`, result);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
