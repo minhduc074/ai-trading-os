@@ -68,6 +68,7 @@ export interface AIDecision {
   reasoning: string;
   confidence: number;
   chainOfThought: string;
+  aiAgent?: string;
 }
 
 export interface PerformanceMetrics {

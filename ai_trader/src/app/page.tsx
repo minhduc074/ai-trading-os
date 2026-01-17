@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastDecisionTime, setLastDecisionTime] = useState<Date | null>(null);
   const [nextDecisionIn, setNextDecisionIn] = useState<string>('');
-  const [lastDecision, setLastDecision] = useState<{ action: string; reasoning: string; confidence: number } | null>(null);
+  const [lastDecision, setLastDecision] = useState<{ action: string; reasoning: string; confidence: number; aiAgent?: string } | null>(null);
   const tradingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingRef = useRef(false);
 
@@ -60,6 +60,7 @@ export default function Dashboard() {
         action: decision.action,
         reasoning: decision.reasoning,
         confidence: decision.confidence || 0,
+        aiAgent: decision.aiAgent,
       });
       console.log(`[${new Date().toISOString()}] AI Decision:`, decision);
 
@@ -411,11 +412,19 @@ export default function Dashboard() {
               <Activity className="w-5 h-5" />
               Last AI Decision
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-sm">Confidence:</span>
-              <span className={`font-semibold ${lastDecision.confidence >= 0.7 ? 'text-green-400' : lastDecision.confidence >= 0.4 ? 'text-yellow-400' : 'text-orange-400'}`}>
-                {(lastDecision.confidence * 100).toFixed(0)}%
-              </span>
+            <div className="flex items-center gap-4">
+              {lastDecision.aiAgent && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-sm">AI Agent:</span>
+                  <span className="font-semibold text-purple-400">{lastDecision.aiAgent}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">Confidence:</span>
+                <span className={`font-semibold ${lastDecision.confidence >= 0.7 ? 'text-green-400' : lastDecision.confidence >= 0.4 ? 'text-yellow-400' : 'text-orange-400'}`}>
+                  {(lastDecision.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
             </div>
           </div>
           <div className="space-y-3">

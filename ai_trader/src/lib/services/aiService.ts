@@ -6,11 +6,13 @@ export class AIService {
   private apiKey: string;
   private provider: string;
   private baseURL: string;
+  private model: string;
 
   constructor() {
     this.provider = process.env.AI_PROVIDER || 'openrouter';
     this.apiKey = process.env.OPENROUTER_API_KEY || '';
     this.baseURL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+    this.model = process.env.AI_MODEL || 'openai/gpt-4o-mini';
   }
 
   async getTradeDecision(
@@ -103,7 +105,7 @@ Provide a JSON response with:
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',
@@ -174,6 +176,7 @@ Provide a JSON response with:
         reasoning: parsed.reasoning || '',
         confidence: parsed.confidence || 0.5,
         chainOfThought: response,
+        aiAgent: this.model,
       };
     } catch (error) {
       console.error('Parse error:', error);
@@ -182,6 +185,7 @@ Provide a JSON response with:
         reasoning: 'Failed to parse AI response',
         confidence: 0,
         chainOfThought: response,
+        aiAgent: this.model,
       };
     }
   }
