@@ -1,0 +1,516 @@
+// Trading Engine Service - Standalone Version
+// Handles trade execution on Binance Futures
+
+const crypto = require('crypto');
+
+class TradingEngine {
+  constructor(config = {}) {
+    this.isSimulation = config.simulationMode || process.env.SIMULATION_MODE === 'true';
+    this.simulationBalance = 1000; // Start with $1000 for simulation
+    this.positions = [];
+    this.trades = [];
+    this.binanceApiKey = config.binanceApiKey || process.env.BINANCE_TESTNET_API_KEY || '';
+    this.binanceApiSecret = config.binanceApiSecret || process.env.BINANCE_TESTNET_API_SECRET || '';
+    this.binanceBaseUrl = (config.useTestnet || process.env.USE_TESTNET === 'true')
+      ? 'https://testnet.binancefuture.com'
+      : 'https://fapi.binance.com';
+    this.timeOffset = 0;
+    this.timeOffsetInitialized = false;
+    this.symbolPrecision = new Map();
+  }
+
+  async syncServerTime() {
+    try {
+      const response = await fetch(`${this.binanceBaseUrl}/fapi/v1/time`);
+      const data = await response.json();
+      const serverTime = data.serverTime;
+      const localTime = Date.now();
+      this.timeOffset = serverTime - localTime;
+      this.timeOffsetInitialized = true;
+      console.log(`[${new Date().toISOString()}] Time synced with Binance. Offset: ${this.timeOffset}ms`);
+    } catch (error) {
+      console.error('Time sync error:', error);
+      this.timeOffset = 0;
+    }
+  }
+
+  async getTimestamp() {
+    if (!this.timeOffsetInitialized) {
+      await this.syncServerTime();
+    }
+    return Date.now() + this.timeOffset;
+  }
+
+  createSignature(queryString) {
+    return crypto
+      .createHmac('sha256', this.binanceApiSecret)
+      .update(queryString)
+      .digest('hex');
+  }
+
+  async getSymbolPrecision(symbol) {
+    // Check cache first
+    if (this.symbolPrecision.has(symbol)) {
+      return this.symbolPrecision.get(symbol);
+    }
+
+    try {
+      // Fetch exchange info
+      const response = await fetch(`${this.binanceBaseUrl}/fapi/v1/exchangeInfo`);
+      const data = await response.json();
+
+      // Find symbol info
+      const symbolInfo = data.symbols.find(s => s.symbol === symbol);
+
+      if (symbolInfo) {
+        const precision = {
+          pricePrecision: symbolInfo.pricePrecision || 2,
+          quantityPrecision: symbolInfo.quantityPrecision || 3,
+        };
+
+        // Cache it
+        this.symbolPrecision.set(symbol, precision);
+        console.log(`[${new Date().toISOString()}] ${symbol} precision: price=${precision.pricePrecision}, quantity=${precision.quantityPrecision}`);
+        return precision;
+      }
+    } catch (error) {
+      console.error('Error fetching symbol precision:', error);
+    }
+
+    // Default fallback
+    const defaultPrecision = { pricePrecision: 2, quantityPrecision: 3 };
+    this.symbolPrecision.set(symbol, defaultPrecision);
+    return defaultPrecision;
+  }
+
+  roundToPrecision(value, precision) {
+    const multiplier = Math.pow(10, precision);
+    return Math.floor(value * multiplier) / multiplier;
+  }
+
+  async binanceRequest(endpoint, params = {}, method = 'GET') {
+    const timestamp = await this.getTimestamp();
+    const queryString = new URLSearchParams({ ...params, timestamp: timestamp.toString() }).toString();
+    const signature = this.createSignature(queryString);
+    const url = `${this.binanceBaseUrl}${endpoint}?${queryString}&signature=${signature}`;
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'X-MBX-APIKEY': this.binanceApiKey,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Binance API error: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  async getAccountStatus() {
+    if (this.isSimulation) {
+      return this.getSimulatedAccountStatus();
+    }
+
+    try {
+      // Fetch real account data from Binance
+      const accountData = await this.binanceRequest('/fapi/v2/account');
+
+      const totalBalance = parseFloat(accountData.totalWalletBalance);
+      const availableBalance = parseFloat(accountData.availableBalance);
+      const totalMarginUsed = parseFloat(accountData.totalInitialMargin);
+      const unrealizedPnL = parseFloat(accountData.totalUnrealizedProfit);
+
+      // Get positions for count
+      const positionsData = await this.binanceRequest('/fapi/v2/positionRisk');
+      const openPositions = positionsData.filter(p => parseFloat(p.positionAmt) !== 0);
+
+      // Calculate daily PnL from recent trades
+      const tradingPair = process.env.TRADING_PAIR || 'BTCUSDT';
+      const trades = await this.binanceRequest('/fapi/v1/userTrades', {
+        symbol: tradingPair,
+        limit: 100,
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dailyPnL = trades
+        .filter(t => new Date(t.time) >= today)
+        .reduce((sum, t) => sum + parseFloat(t.realizedPnl || '0'), 0);
+
+      console.log(`[${new Date().toISOString()}] Binance Account Status:`);
+      console.log(`  Total Balance: $${totalBalance.toFixed(2)}`);
+      console.log(`  Available: $${availableBalance.toFixed(2)}`);
+      console.log(`  Unrealized PnL: $${unrealizedPnL.toFixed(2)}`);
+      console.log(`  Open Positions: ${openPositions.length}`);
+
+      return {
+        totalBalance,
+        availableBalance,
+        totalMarginUsed,
+        marginUsagePercent: totalBalance > 0 ? (totalMarginUsed / totalBalance) * 100 : 0,
+        unrealizedPnL,
+        dailyPnL,
+        positionCount: openPositions.length,
+      };
+    } catch (error) {
+      console.error('Account status error:', error);
+      return this.getSimulatedAccountStatus();
+    }
+  }
+
+  getSimulatedAccountStatus() {
+    const totalMarginUsed = this.positions.reduce((sum, p) => sum + (p.quantity * p.entryPrice) / p.leverage, 0);
+    const unrealizedPnL = this.positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
+    const totalBalance = this.simulationBalance + unrealizedPnL;
+
+    return {
+      totalBalance,
+      availableBalance: totalBalance - totalMarginUsed,
+      totalMarginUsed,
+      marginUsagePercent: (totalMarginUsed / totalBalance) * 100,
+      unrealizedPnL,
+      dailyPnL: this.trades
+        .filter((t) => {
+          const tradeDate = new Date(t.closeTime);
+          const today = new Date();
+          return (
+            tradeDate.getFullYear() === today.getFullYear() &&
+            tradeDate.getMonth() === today.getMonth() &&
+            tradeDate.getDate() === today.getDate()
+          );
+        })
+        .reduce((sum, t) => sum + t.pnl, 0),
+      positionCount: this.positions.length,
+    };
+  }
+
+  async executeDecision(decision) {
+    try {
+      if (decision.action === 'HOLD' || decision.action === 'WAIT') {
+        return { success: true, message: 'No action taken - WAIT/HOLD' };
+      }
+
+      if (decision.action === 'CLOSE_LONG' || decision.action === 'CLOSE_SHORT') {
+        return this.closePosition(decision.symbol || '');
+      }
+
+      if (decision.action === 'OPEN_LONG' || decision.action === 'OPEN_SHORT') {
+        return this.openPosition(
+          decision.symbol || '',
+          decision.action === 'OPEN_LONG' ? 'LONG' : 'SHORT',
+          decision.quantity || 0.1,
+          decision.leverage || 5,
+          decision.stopLoss || 0,
+          decision.takeProfit || 0
+        );
+      }
+
+      return { success: true, message: 'Unknown action' };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Execution error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async openPosition(symbol, side, quantity, leverage, stopLoss, takeProfit) {
+    if (this.isSimulation) {
+      return this.openSimulatedPosition(symbol, side, quantity, leverage, stopLoss, takeProfit);
+    }
+
+    try {
+      // Get precision info for this symbol
+      const precision = await this.getSymbolPrecision(symbol);
+
+      // Round quantity to correct precision
+      const roundedQuantity = this.roundToPrecision(quantity, precision.quantityPrecision);
+      console.log(`[${new Date().toISOString()}] Quantity adjusted: ${quantity} -> ${roundedQuantity} (precision: ${precision.quantityPrecision})`);
+
+      // Set leverage first
+      await this.binanceRequest('/fapi/v1/leverage', {
+        symbol,
+        leverage: leverage.toString(),
+      }, 'POST');
+
+      // Set position mode to One-Way if needed (ignore errors if already set)
+      try {
+        await this.binanceRequest('/fapi/v1/positionSide/dual', {
+          dualSidePosition: 'false',
+        }, 'POST');
+      } catch (error) {
+        // Ignore if already in One-Way mode
+        console.log('Position mode already set or error:', error);
+      }
+
+      // Place market order with rounded quantity
+      const timestamp = await this.getTimestamp();
+      const orderParams = {
+        symbol,
+        side: side === 'LONG' ? 'BUY' : 'SELL',
+        type: 'MARKET',
+        quantity: roundedQuantity.toString(),
+        positionSide: 'BOTH', // One-Way mode
+        timestamp: timestamp.toString(),
+      };
+
+      const queryString = new URLSearchParams(orderParams).toString();
+      const signature = this.createSignature(queryString);
+      const url = `${this.binanceBaseUrl}/fapi/v1/order?${queryString}&signature=${signature}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-MBX-APIKEY': this.binanceApiKey,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Open position error:', error);
+        return { success: false, error: `Failed to open position: ${error}` };
+      }
+
+      const orderData = await response.json();
+      console.log(`[${new Date().toISOString()}] Opened ${side} position on ${symbol}: ${orderData.orderId}`);
+
+      return { success: true, message: `Opened ${side} position on ${symbol}` };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Open position error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async openSimulatedPosition(symbol, side, quantity, leverage, stopLoss, takeProfit) {
+    const existingPosition = this.positions.find((p) => p.symbol === symbol && p.side === side);
+    if (existingPosition) {
+      return { success: false, error: `Position already exists for ${symbol} ${side}` };
+    }
+
+    // Simulate fetching current price
+    const currentPrice = 40000 + Math.random() * 5000; // Mock price
+
+    const position = {
+      symbol,
+      side,
+      quantity,
+      leverage,
+      entryPrice: currentPrice,
+      currentPrice,
+      unrealizedPnL: 0,
+      unrealizedPnLPercent: 0,
+      openTime: new Date(),
+      stopLoss,
+      takeProfit,
+    };
+
+    this.positions.push(position);
+    console.log(`[${new Date().toISOString()}] Simulated ${side} position opened on ${symbol}`);
+    return { success: true, message: `Simulated ${side} position opened on ${symbol}` };
+  }
+
+  async closePosition(symbol) {
+    if (this.isSimulation) {
+      return this.closeSimulatedPosition(symbol);
+    }
+
+    try {
+      // Get current position to determine side and quantity
+      const positions = await this.getPositions();
+      const position = positions.find((p) => p.symbol === symbol);
+
+      if (!position) {
+        return { success: false, error: `No position found for ${symbol}` };
+      }
+
+      // Close position by placing opposite order
+      const timestamp = await this.getTimestamp();
+      const orderParams = {
+        symbol,
+        side: position.side === 'LONG' ? 'SELL' : 'BUY',
+        type: 'MARKET',
+        quantity: position.quantity.toString(),
+        positionSide: 'BOTH', // One-Way mode
+        reduceOnly: 'true',
+        timestamp: timestamp.toString(),
+      };
+
+      const queryString = new URLSearchParams(orderParams).toString();
+      const signature = this.createSignature(queryString);
+      const url = `${this.binanceBaseUrl}/fapi/v1/order?${queryString}&signature=${signature}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-MBX-APIKEY': this.binanceApiKey,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Close position error:', error);
+        return { success: false, error: `Failed to close position: ${error}` };
+      }
+
+      const orderData = await response.json();
+      console.log(`[${new Date().toISOString()}] Closed ${position.side} position on ${symbol}: PnL $${position.unrealizedPnL.toFixed(2)}`);
+
+      return { success: true, message: `Closed ${position.side} position on ${symbol}` };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Close position error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async closeSimulatedPosition(symbol) {
+    const positionIndex = this.positions.findIndex((p) => p.symbol === symbol);
+    if (positionIndex === -1) {
+      return { success: false, error: `No position found for ${symbol}` };
+    }
+
+    const position = this.positions[positionIndex];
+    const currentPrice = 40000 + Math.random() * 5000; // Mock price
+    const priceDiff = position.side === 'LONG' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice;
+    const pnl = priceDiff * position.quantity * position.leverage;
+    const pnlPercent = (priceDiff / position.entryPrice) * 100;
+
+    const trade = {
+      id: `${symbol}-${Date.now()}`,
+      symbol,
+      side: position.side,
+      quantity: position.quantity,
+      leverage: position.leverage,
+      entryPrice: position.entryPrice,
+      exitPrice: currentPrice,
+      pnl,
+      pnlPercent,
+      openTime: position.openTime,
+      closeTime: new Date(),
+      duration: Math.round((new Date().getTime() - position.openTime.getTime()) / 60000),
+    };
+
+    this.trades.push(trade);
+    this.simulationBalance += pnl;
+    this.positions.splice(positionIndex, 1);
+
+    console.log(`[${new Date().toISOString()}] Simulated position closed on ${symbol}: PnL $${pnl.toFixed(2)}`);
+    return { success: true, message: `Simulated position closed on ${symbol}` };
+  }
+
+  async getPositions() {
+    if (this.isSimulation) {
+      return this.positions;
+    }
+
+    try {
+      // Fetch real positions from Binance
+      const positionsData = await this.binanceRequest('/fapi/v2/positionRisk');
+
+      const openPositions = [];
+
+      for (const pos of positionsData) {
+        const positionAmt = parseFloat(pos.positionAmt);
+        if (positionAmt === 0) continue; // Skip closed positions
+
+        const entryPrice = parseFloat(pos.entryPrice);
+        const currentPrice = parseFloat(pos.markPrice);
+        const leverage = parseInt(pos.leverage);
+        const unrealizedPnL = parseFloat(pos.unRealizedProfit);
+
+        const side = positionAmt > 0 ? 'LONG' : 'SHORT';
+        const quantity = Math.abs(positionAmt);
+        const priceDiff = side === 'LONG' ? currentPrice - entryPrice : entryPrice - currentPrice;
+        const unrealizedPnLPercent = entryPrice > 0 ? (priceDiff / entryPrice) * 100 * leverage : 0;
+
+        openPositions.push({
+          symbol: pos.symbol,
+          side,
+          quantity,
+          leverage,
+          entryPrice,
+          currentPrice,
+          unrealizedPnL,
+          unrealizedPnLPercent,
+          openTime: new Date(parseInt(pos.updateTime || '0')),
+          stopLoss: 0,
+          takeProfit: 0,
+        });
+      }
+
+      console.log(`[${new Date().toISOString()}] Binance Positions: ${openPositions.length} open`);
+      openPositions.forEach((pos, idx) => {
+        console.log(`  ${idx + 1}. ${pos.symbol} ${pos.side} - PnL: $${pos.unrealizedPnL.toFixed(2)} (${pos.unrealizedPnLPercent.toFixed(2)}%)`);
+      });
+
+      return openPositions;
+    } catch (error) {
+      console.error('Get positions error:', error);
+      return this.positions;
+    }
+  }
+
+  async getRecentTrades(limit = 10) {
+    if (this.isSimulation) {
+      return this.trades.slice(-limit);
+    }
+
+    try {
+      // Fetch recent trades from Binance
+      const tradingPair = process.env.TRADING_PAIR || 'BTCUSDT';
+      const tradesData = await this.binanceRequest('/fapi/v1/userTrades', {
+        symbol: tradingPair,
+        limit: limit * 2,
+      });
+
+      const trades = [];
+
+      for (const t of tradesData) {
+        const isBuy = t.side === 'BUY';
+        const qty = parseFloat(t.qty);
+        const price = parseFloat(t.price);
+        const realizedPnl = parseFloat(t.realizedPnl || '0');
+
+        if (realizedPnl !== 0) {
+          const side = isBuy ? 'SHORT' : 'LONG';
+          trades.push({
+            id: t.id.toString(),
+            symbol: t.symbol,
+            side,
+            quantity: qty,
+            leverage: 1,
+            entryPrice: price - realizedPnl / qty,
+            exitPrice: price,
+            pnl: realizedPnl,
+            pnlPercent: (realizedPnl / (qty * price)) * 100,
+            openTime: new Date(t.time - 3600000),
+            closeTime: new Date(t.time),
+            duration: 60,
+          });
+        }
+      }
+
+      return trades.slice(-limit);
+    } catch (error) {
+      console.error('Get trades error:', error);
+      return this.trades.slice(-limit);
+    }
+  }
+
+  updatePositionPrices(marketData) {
+    for (const position of this.positions) {
+      const newPrice = marketData.get(position.symbol);
+      if (newPrice) {
+        position.currentPrice = newPrice;
+        const priceDiff = position.side === 'LONG' ? newPrice - position.entryPrice : position.entryPrice - newPrice;
+        position.unrealizedPnL = priceDiff * position.quantity * position.leverage;
+        position.unrealizedPnLPercent = (priceDiff / position.entryPrice) * 100;
+      }
+    }
+  }
+}
+
+module.exports = { TradingEngine };
