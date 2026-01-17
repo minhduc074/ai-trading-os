@@ -4,8 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import type { AccountStatus, Position, Trade } from '@/lib/types';
 
-// Decision interval from env or default 1 hour (3600000ms)
-const DECISION_INTERVAL = parseInt(process.env.NEXT_PUBLIC_DECISION_INTERVAL_MS || '3600000', 10);
+// Decision interval from env or default 15 min (900000ms)
+const DECISION_INTERVAL = parseInt(process.env.NEXT_PUBLIC_DECISION_INTERVAL_MS || '900000', 10);
 
 export default function Dashboard() {
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);

@@ -1,23 +1,25 @@
-// Trading Engine Service
+// Trading Engine Service - Standalone Version
+// Handles trade execution on Binance Futures
 
-import type { Position, Trade, AccountStatus, AIDecision } from '@/lib/types';
-import crypto from 'crypto';
+const crypto = require('crypto');
 
-export class TradingEngine {
-  private isSimulation = process.env.SIMULATION_MODE === 'true';
-  private simulationBalance = 1000; // Start with $1000 for simulation
-  private positions: Position[] = [];
-  private trades: Trade[] = [];
-  private binanceApiKey = process.env.BINANCE_TESTNET_API_KEY || '';
-  private binanceApiSecret = process.env.BINANCE_TESTNET_API_SECRET || '';
-  private binanceBaseUrl = process.env.USE_TESTNET === 'true'
-    ? 'https://testnet.binancefuture.com'
-    : 'https://fapi.binance.com';
-  private timeOffset = 0;
-  private timeOffsetInitialized = false;
-  private symbolPrecision: Map<string, { pricePrecision: number; quantityPrecision: number }> = new Map();
+class TradingEngine {
+  constructor(config = {}) {
+    this.isSimulation = config.simulationMode || process.env.SIMULATION_MODE === 'true';
+    this.simulationBalance = 1000; // Start with $1000 for simulation
+    this.positions = [];
+    this.trades = [];
+    this.binanceApiKey = config.binanceApiKey || process.env.BINANCE_TESTNET_API_KEY || '';
+    this.binanceApiSecret = config.binanceApiSecret || process.env.BINANCE_TESTNET_API_SECRET || '';
+    this.binanceBaseUrl = (config.useTestnet || process.env.USE_TESTNET === 'true')
+      ? 'https://testnet.binancefuture.com'
+      : 'https://fapi.binance.com';
+    this.timeOffset = 0;
+    this.timeOffsetInitialized = false;
+    this.symbolPrecision = new Map();
+  }
 
-  private async syncServerTime(): Promise<void> {
+  async syncServerTime() {
     try {
       const response = await fetch(`${this.binanceBaseUrl}/fapi/v1/time`);
       const data = await response.json();
@@ -32,24 +34,24 @@ export class TradingEngine {
     }
   }
 
-  private async getTimestamp(): Promise<number> {
+  async getTimestamp() {
     if (!this.timeOffsetInitialized) {
       await this.syncServerTime();
     }
     return Date.now() + this.timeOffset;
   }
 
-  private createSignature(queryString: string): string {
+  createSignature(queryString) {
     return crypto
       .createHmac('sha256', this.binanceApiSecret)
       .update(queryString)
       .digest('hex');
   }
 
-  private async getSymbolPrecision(symbol: string): Promise<{ pricePrecision: number; quantityPrecision: number }> {
+  async getSymbolPrecision(symbol) {
     // Check cache first
     if (this.symbolPrecision.has(symbol)) {
-      return this.symbolPrecision.get(symbol)!;
+      return this.symbolPrecision.get(symbol);
     }
 
     try {
@@ -58,7 +60,7 @@ export class TradingEngine {
       const data = await response.json();
 
       // Find symbol info
-      const symbolInfo = data.symbols.find((s: any) => s.symbol === symbol);
+      const symbolInfo = data.symbols.find(s => s.symbol === symbol);
 
       if (symbolInfo) {
         const precision = {
@@ -81,12 +83,12 @@ export class TradingEngine {
     return defaultPrecision;
   }
 
-  private roundToPrecision(value: number, precision: number): number {
+  roundToPrecision(value, precision) {
     const multiplier = Math.pow(10, precision);
     return Math.floor(value * multiplier) / multiplier;
   }
 
-  private async binanceRequest(endpoint: string, params: Record<string, any> = {}, method: 'GET' | 'POST' = 'GET'): Promise<any> {
+  async binanceRequest(endpoint, params = {}, method = 'GET') {
     const timestamp = await this.getTimestamp();
     const queryString = new URLSearchParams({ ...params, timestamp: timestamp.toString() }).toString();
     const signature = this.createSignature(queryString);
@@ -107,7 +109,7 @@ export class TradingEngine {
     return response.json();
   }
 
-  async getAccountStatus(): Promise<AccountStatus> {
+  async getAccountStatus() {
     if (this.isSimulation) {
       return this.getSimulatedAccountStatus();
     }
@@ -123,19 +125,20 @@ export class TradingEngine {
 
       // Get positions for count
       const positionsData = await this.binanceRequest('/fapi/v2/positionRisk');
-      const openPositions = positionsData.filter((p: any) => parseFloat(p.positionAmt) !== 0);
+      const openPositions = positionsData.filter(p => parseFloat(p.positionAmt) !== 0);
 
       // Calculate daily PnL from recent trades
+      const tradingPair = process.env.TRADING_PAIR || 'BTCUSDT';
       const trades = await this.binanceRequest('/fapi/v1/userTrades', {
-        symbol: process.env.TRADING_PAIR || 'BTCUSDT',
+        symbol: tradingPair,
         limit: 100,
       });
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const dailyPnL = trades
-        .filter((t: any) => new Date(t.time) >= today)
-        .reduce((sum: number, t: any) => sum + parseFloat(t.realizedPnl || '0'), 0);
+        .filter(t => new Date(t.time) >= today)
+        .reduce((sum, t) => sum + parseFloat(t.realizedPnl || '0'), 0);
 
       console.log(`[${new Date().toISOString()}] Binance Account Status:`);
       console.log(`  Total Balance: $${totalBalance.toFixed(2)}`);
@@ -158,7 +161,7 @@ export class TradingEngine {
     }
   }
 
-  private getSimulatedAccountStatus(): AccountStatus {
+  getSimulatedAccountStatus() {
     const totalMarginUsed = this.positions.reduce((sum, p) => sum + (p.quantity * p.entryPrice) / p.leverage, 0);
     const unrealizedPnL = this.positions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
     const totalBalance = this.simulationBalance + unrealizedPnL;
@@ -184,7 +187,7 @@ export class TradingEngine {
     };
   }
 
-  async executeDecision(decision: AIDecision): Promise<{ success: boolean; error?: string; message?: string }> {
+  async executeDecision(decision) {
     try {
       if (decision.action === 'HOLD' || decision.action === 'WAIT') {
         return { success: true, message: 'No action taken - WAIT/HOLD' };
@@ -213,14 +216,7 @@ export class TradingEngine {
     }
   }
 
-  private async openPosition(
-    symbol: string,
-    side: 'LONG' | 'SHORT',
-    quantity: number,
-    leverage: number,
-    stopLoss: number,
-    takeProfit: number
-  ): Promise<{ success: boolean; error?: string; message?: string }> {
+  async openPosition(symbol, side, quantity, leverage, stopLoss, takeProfit) {
     if (this.isSimulation) {
       return this.openSimulatedPosition(symbol, side, quantity, leverage, stopLoss, takeProfit);
     }
@@ -288,14 +284,7 @@ export class TradingEngine {
     }
   }
 
-  private async openSimulatedPosition(
-    symbol: string,
-    side: 'LONG' | 'SHORT',
-    quantity: number,
-    leverage: number,
-    stopLoss: number,
-    takeProfit: number
-  ): Promise<{ success: boolean; error?: string; message?: string }> {
+  async openSimulatedPosition(symbol, side, quantity, leverage, stopLoss, takeProfit) {
     const existingPosition = this.positions.find((p) => p.symbol === symbol && p.side === side);
     if (existingPosition) {
       return { success: false, error: `Position already exists for ${symbol} ${side}` };
@@ -304,7 +293,7 @@ export class TradingEngine {
     // Simulate fetching current price
     const currentPrice = 40000 + Math.random() * 5000; // Mock price
 
-    const position: Position = {
+    const position = {
       symbol,
       side,
       quantity,
@@ -323,7 +312,7 @@ export class TradingEngine {
     return { success: true, message: `Simulated ${side} position opened on ${symbol}` };
   }
 
-  private async closePosition(symbol: string): Promise<{ success: boolean; error?: string; message?: string }> {
+  async closePosition(symbol) {
     if (this.isSimulation) {
       return this.closeSimulatedPosition(symbol);
     }
@@ -377,7 +366,7 @@ export class TradingEngine {
     }
   }
 
-  private async closeSimulatedPosition(symbol: string): Promise<{ success: boolean; error?: string; message?: string }> {
+  async closeSimulatedPosition(symbol) {
     const positionIndex = this.positions.findIndex((p) => p.symbol === symbol);
     if (positionIndex === -1) {
       return { success: false, error: `No position found for ${symbol}` };
@@ -389,7 +378,7 @@ export class TradingEngine {
     const pnl = priceDiff * position.quantity * position.leverage;
     const pnlPercent = (priceDiff / position.entryPrice) * 100;
 
-    const trade: Trade = {
+    const trade = {
       id: `${symbol}-${Date.now()}`,
       symbol,
       side: position.side,
@@ -412,7 +401,7 @@ export class TradingEngine {
     return { success: true, message: `Simulated position closed on ${symbol}` };
   }
 
-  async getPositions(): Promise<Position[]> {
+  async getPositions() {
     if (this.isSimulation) {
       return this.positions;
     }
@@ -421,7 +410,7 @@ export class TradingEngine {
       // Fetch real positions from Binance
       const positionsData = await this.binanceRequest('/fapi/v2/positionRisk');
 
-      const openPositions: Position[] = [];
+      const openPositions = [];
 
       for (const pos of positionsData) {
         const positionAmt = parseFloat(pos.positionAmt);
@@ -447,7 +436,7 @@ export class TradingEngine {
           unrealizedPnL,
           unrealizedPnLPercent,
           openTime: new Date(parseInt(pos.updateTime || '0')),
-          stopLoss: 0, // Binance doesn't provide this in positionRisk
+          stopLoss: 0,
           takeProfit: 0,
         });
       }
@@ -464,22 +453,21 @@ export class TradingEngine {
     }
   }
 
-  async getRecentTrades(limit = 10): Promise<Trade[]> {
+  async getRecentTrades(limit = 10) {
     if (this.isSimulation) {
       return this.trades.slice(-limit);
     }
 
     try {
       // Fetch recent trades from Binance
+      const tradingPair = process.env.TRADING_PAIR || 'BTCUSDT';
       const tradesData = await this.binanceRequest('/fapi/v1/userTrades', {
-        symbol: process.env.TRADING_PAIR || 'BTCUSDT',
-        limit: limit * 2, // Fetch more to account for both open and close
+        symbol: tradingPair,
+        limit: limit * 2,
       });
 
-      const trades: Trade[] = [];
-      const tradeMap = new Map<string, any>();
+      const trades = [];
 
-      // Group trades into open/close pairs
       for (const t of tradesData) {
         const isBuy = t.side === 'BUY';
         const qty = parseFloat(t.qty);
@@ -487,21 +475,20 @@ export class TradingEngine {
         const realizedPnl = parseFloat(t.realizedPnl || '0');
 
         if (realizedPnl !== 0) {
-          // This is a closing trade
-          const side = isBuy ? 'SHORT' : 'LONG'; // Closing a long means selling
+          const side = isBuy ? 'SHORT' : 'LONG';
           trades.push({
             id: t.id.toString(),
             symbol: t.symbol,
             side,
             quantity: qty,
-            leverage: 1, // Not available in trade data
-            entryPrice: price - realizedPnl / qty, // Approximate
+            leverage: 1,
+            entryPrice: price - realizedPnl / qty,
             exitPrice: price,
             pnl: realizedPnl,
             pnlPercent: (realizedPnl / (qty * price)) * 100,
-            openTime: new Date(t.time - 3600000), // Approximate
+            openTime: new Date(t.time - 3600000),
             closeTime: new Date(t.time),
-            duration: 60, // Approximate
+            duration: 60,
           });
         }
       }
@@ -513,7 +500,7 @@ export class TradingEngine {
     }
   }
 
-  updatePositionPrices(marketData: Map<string, number>): void {
+  updatePositionPrices(marketData) {
     for (const position of this.positions) {
       const newPrice = marketData.get(position.symbol);
       if (newPrice) {
@@ -526,4 +513,4 @@ export class TradingEngine {
   }
 }
 
-export const tradingEngine = new TradingEngine();
+module.exports = { TradingEngine };

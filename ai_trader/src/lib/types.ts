@@ -69,6 +69,20 @@ export interface AIDecision {
   confidence: number;
   chainOfThought: string;
   aiAgent?: string;
+  // Support for multiple decisions
+  decisions?: AIDecisionItem[];
+}
+
+export interface AIDecisionItem {
+  action: 'CLOSE_LONG' | 'CLOSE_SHORT' | 'OPEN_LONG' | 'OPEN_SHORT';
+  symbol: string;
+  quantity?: number;
+  leverage?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  reasoning: string;
+  confidence: number;
+  priority?: number; // 1 = highest priority, higher numbers execute first
 }
 
 export interface PerformanceMetrics {

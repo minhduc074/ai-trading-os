@@ -1,0 +1,75 @@
+# Render Blueprint - AI Trader
+# This deploys both the Web UI and Background Trader
+# Deploy: https://render.com/deploy
+
+services:
+  # ===========================================
+  # Web UI - Next.js Dashboard
+  # ===========================================
+  - type: web
+    name: ai-trader-web
+    runtime: node
+    region: singapore  # Change to your preferred region
+    plan: free  # or starter ($7/mo) for better performance
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # Add your secrets in Render Dashboard (don't commit these!)
+      - key: CLI_PROXYAPI_API_KEY
+        sync: false
+      - key: CLI_PROXYAPI_BASE_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: BINANCE_TESTNET_API_KEY
+        sync: false
+      - key: BINANCE_TESTNET_API_SECRET
+        sync: false
+      - key: USE_TESTNET
+        value: "true"
+      - key: SIMULATION_MODE
+        value: "false"
+      - key: DECISION_INTERVAL_MS
+        value: "900000"
+    healthCheckPath: /
+    autoDeploy: true
+
+  # ===========================================
+  # Background Trader - Standalone Service
+  # ===========================================
+  - type: worker
+    name: ai-trader-background
+    runtime: node
+    region: singapore  # Same region as web for lower latency
+    plan: free  # or starter ($7/mo) for always-on
+    buildCommand: npm install
+    startCommand: node standalone/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Share the same secrets as web service
+      - key: CLI_PROXYAPI_API_KEY
+        sync: false
+      - key: CLI_PROXYAPI_BASE_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: BINANCE_TESTNET_API_KEY
+        sync: false
+      - key: BINANCE_TESTNET_API_SECRET
+        sync: false
+      - key: USE_TESTNET
+        value: "true"
+      - key: SIMULATION_MODE
+        value: "false"
+      - key: DECISION_INTERVAL_MS
+        value: "900000"
+      - key: TRADING_PAIR
+        value: "BTCUSDT"
+    autoDeploy: true

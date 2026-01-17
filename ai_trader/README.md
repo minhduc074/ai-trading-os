@@ -2,6 +2,48 @@
 
 A professional AI-powered cryptocurrency trading system built with Next.js, featuring real-time portfolio management, intelligent decision making, and comprehensive trading analytics.
 
+## 🎉 What's New - v1.2
+
+### 🚀 Standalone Background Service (NEW!)
+Run your AI trader **without** needing the Next.js web UI!
+
+- ✅ **No browser required** - pure terminal-based trading
+- ✅ **Lightweight** - runs as a simple Node.js process
+- ✅ **Same AI logic** - all trading intelligence included
+- ✅ **Easy to deploy** - perfect for servers and VPS
+- ✅ **Windows/Linux/Mac** - cross-platform support
+
+**Quick Start**:
+```bash
+# Windows PowerShell
+.\start-standalone.ps1
+
+# Windows (double-click)
+start-standalone.bat
+
+# Linux/Mac
+./start-standalone.sh
+
+# Using npm
+npm run trader
+npm run trader:sim    # Simulation mode
+npm run trader:fast   # 1-minute intervals
+```
+
+### Multiple Decisions Feature (v1.1)
+Your AI trading system can now **make multiple trading decisions simultaneously**!
+
+- ✅ **Close multiple positions** in one cycle
+- ✅ **Open multiple positions** at once
+- ✅ **Mix actions** (e.g., close losing positions while opening new ones)
+- ✅ **Intelligent prioritization** of execution order
+- ✅ **Fully backward compatible** with existing single-decision logic
+
+**Quick Start**: See [`MULTIPLE_DECISIONS_QUICKSTART.md`](MULTIPLE_DECISIONS_QUICKSTART.md)  
+**Technical Docs**: See [`MULTIPLE_DECISIONS.md`](MULTIPLE_DECISIONS.md)  
+**Upgrade Summary**: See [`UPGRADE_SUMMARY.md`](UPGRADE_SUMMARY.md)
+
+
 ## Features
 
 ### 🤖 AI-Powered Trading
@@ -78,11 +120,56 @@ NEXT_PUBLIC_MAX_MARGIN_USAGE=0.90
 ### Running
 
 ```bash
-# Development mode
-npm run dev
+# Option 1: Standalone Background Service (NO WEB UI NEEDED!)
+npm run trader           # Start background trading service
+npm run trader:sim       # Simulation mode
+npm run trader:fast      # 1-minute intervals for testing
 
-# Open browser
-# http://localhost:3000
+# Option 2: Full Web Dashboard
+npm run dev              # Development mode with web UI
+# Open browser: http://localhost:3000
+```
+
+## 🤖 Standalone Mode (Recommended for Production)
+
+## 🤖 Standalone Mode (Recommended for Production)
+
+The standalone service runs directly in your terminal without needing Next.js:
+
+```bash
+# Quick start (Windows)
+.\start-standalone.ps1
+
+# Or using npm
+npm run trader
+```
+
+### Features
+- **No web server required** - saves resources
+- **Terminal output** - see all decisions in real-time
+- **Same AI logic** - identical to web version
+- **Graceful shutdown** - press Ctrl+C to stop safely
+
+### Configuration Options
+
+| Method | Command | Description |
+|--------|---------|-------------|
+| PowerShell | `.\start-standalone.ps1 -Simulation` | Force simulation mode |
+| PowerShell | `.\start-standalone.ps1 -IntervalMinutes 5` | 5-minute intervals |
+| npm | `npm run trader:sim` | Simulation mode |
+| npm | `npm run trader:fast` | 1-minute intervals |
+| Environment | `DECISION_INTERVAL_MS=60000` | Custom interval |
+
+### Project Structure (Standalone)
+
+```
+standalone/
+├── index.js           # Main entry point
+├── aiService.js       # AI decision making
+├── tradingEngine.js   # Trade execution
+├── marketDataService.js  # Market data
+├── performanceService.js # Performance metrics
+└── types.js           # Type definitions
 ```
 
 ## API Endpoints

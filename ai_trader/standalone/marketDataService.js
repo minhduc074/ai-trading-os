@@ -1,12 +1,13 @@
-// Market Data Service
+// Market Data Service - Standalone Version
+// Fetches market data from Binance Futures API
 
-import type { MarketData } from '@/lib/types';
-
-export class MarketDataService {
-  private baseURL = 'https://fapi.binance.com';
+class MarketDataService {
+  constructor() {
+    this.baseURL = 'https://fapi.binance.com';
+  }
 
   // Helper: Calculate RSI
-  private calculateRSI(prices: number[], period: number): number {
+  calculateRSI(prices, period) {
     if (prices.length < period + 1) return 50;
     
     const changes = prices.slice(1).map((price, i) => price - prices[i]);
@@ -22,7 +23,7 @@ export class MarketDataService {
   }
 
   // Helper: Calculate EMA
-  private calculateEMA(prices: number[], period: number): number {
+  calculateEMA(prices, period) {
     if (prices.length < period) return prices[prices.length - 1];
     
     const multiplier = 2 / (period + 1);
@@ -36,13 +37,13 @@ export class MarketDataService {
   }
 
   // Helper: Calculate MACD
-  private calculateMACD(prices: number[]): { macd: number; signal: number; histogram: number } {
+  calculateMACD(prices) {
     const ema12 = this.calculateEMA(prices, 12);
     const ema26 = this.calculateEMA(prices, 26);
     const macd = ema12 - ema26;
     
     // Calculate signal line (9-day EMA of MACD)
-    const macdLine: number[] = [];
+    const macdLine = [];
     for (let i = 26; i <= prices.length; i++) {
       const slice = prices.slice(0, i);
       const e12 = this.calculateEMA(slice, 12);
@@ -57,10 +58,10 @@ export class MarketDataService {
   }
 
   // Helper: Calculate ATR
-  private calculateATR(highs: number[], lows: number[], closes: number[], period: number = 14): number {
+  calculateATR(highs, lows, closes, period = 14) {
     if (highs.length < period + 1) return 0;
     
-    const trueRanges: number[] = [];
+    const trueRanges = [];
     for (let i = 1; i < highs.length; i++) {
       const tr = Math.max(
         highs[i] - lows[i],
@@ -73,9 +74,9 @@ export class MarketDataService {
     return trueRanges.slice(-period).reduce((a, b) => a + b, 0) / period;
   }
 
-  async getMarketData(symbols: string[]): Promise<MarketData[]> {
+  async getMarketData(symbols) {
     try {
-      const data: MarketData[] = [];
+      const data = [];
 
       for (const symbol of symbols) {
         const marketData = await this.fetchSymbolData(symbol);
@@ -91,7 +92,7 @@ export class MarketDataService {
     }
   }
 
-  private async fetchSymbolData(symbol: string): Promise<MarketData | null> {
+  async fetchSymbolData(symbol) {
     try {
       // Fetch ticker data
       const tickerResponse = await fetch(`${this.baseURL}/fapi/v1/ticker/24hr?symbol=${symbol}`);
@@ -100,7 +101,7 @@ export class MarketDataService {
         console.error(`[${symbol}] Ticker API error ${tickerResponse.status}: ${errorText}`);
         throw new Error(`Ticker API error: ${tickerResponse.status}`);
       }
-      const ticker = await tickerResponse.json() as any;
+      const ticker = await tickerResponse.json();
       if (ticker.code) {
         console.error(`[${symbol}] Binance error code ${ticker.code}: ${ticker.msg}`);
         throw new Error(`Ticker error: ${ticker.msg}`);
@@ -108,12 +109,12 @@ export class MarketDataService {
 
       // Fetch funding rate
       const fundingResponse = await fetch(`${this.baseURL}/fapi/v1/fundingRate?symbol=${symbol}&limit=1`);
-      const fundingData = await fundingResponse.json() as any;
+      const fundingData = await fundingResponse.json();
       const fundingArray = Array.isArray(fundingData) ? fundingData : [];
 
       // Fetch open interest
       const oiResponse = await fetch(`${this.baseURL}/fapi/v1/openInterest?symbol=${symbol}`);
-      const oiData = await oiResponse.json() as any;
+      const oiData = await oiResponse.json();
 
       // Fetch K-line data for technical indicators
       // 1h candles for RSI and short-term indicators (last 100 candles)
@@ -123,7 +124,7 @@ export class MarketDataService {
         console.error(`[${symbol}] 1h klines API error ${klines1hResponse.status}: ${errorText}`);
         return null;
       }
-      const klines1hData = await klines1hResponse.json() as any;
+      const klines1hData = await klines1hResponse.json();
       
       if (!Array.isArray(klines1hData)) {
         console.error(`[${symbol}] Invalid 1h klines response:`, JSON.stringify(klines1hData).substring(0, 200));
@@ -143,7 +144,7 @@ export class MarketDataService {
         console.error(`[${symbol}] 4h klines API error ${klines4hResponse.status}: ${errorText}`);
         return null;
       }
-      const klines4hData = await klines4hResponse.json() as any;
+      const klines4hData = await klines4hResponse.json();
       
       if (!Array.isArray(klines4hData)) {
         console.error(`[${symbol}] Invalid 4h klines response:`, JSON.stringify(klines4hData).substring(0, 200));
@@ -195,7 +196,7 @@ export class MarketDataService {
     }
   }
 
-  async getDefaultCoinPool(): Promise<string[]> {
+  getDefaultCoinPool() {
     // Top major coins
     return [
       'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 
@@ -206,9 +207,7 @@ export class MarketDataService {
     ];
   }
 
-  async getTopCoins(): Promise<string[]> {
-    // Fetch top coins by various metrics
-    // This is a simplified version - in real implementation, use CoinGecko or similar
+  getTopCoins() {
     return [
       'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
       'ADAUSDT', 'DOGEUSDT', 'MATICUSDT', 'LTCUSDT', 'BCHUSDT',
@@ -216,12 +215,8 @@ export class MarketDataService {
       'ATOMUSDT', 'FILUSDT', 'ETCUSDT', 'NEARUSDT', 'FTMUSDT',
       'AVAXUSDT', 'ICPUSDT', 'APTUSDT', 'ARBUSDT', 'OPUSDT',
       'SUIUSDT', 'INJUSDT', 'WLDUSDT', 'SEIUSDT', 'TIAUSDT',
-      'JUPUSDT', 'STXUSDT', 'RNDRUSDT', 'TAOUSDT', 'PENDLEUSDT',
-      'RUNEUSDT', 'POLUSDT', 'PYTHUSDT', 'DYMUSDT', 'WIFUSDT',
-      'SHIBUSDT', 'FLOKIUSDT', 'BONKUSDT', 'ORDIUSDT', '1000PEPEUSDT',
-      'AAVEUSDT', 'MKRUSDT', 'LDOUSDT', 'GMXUSDT', 'GRTUSDT',
     ];
   }
 }
 
-export const marketDataService = new MarketDataService();
+module.exports = { MarketDataService };

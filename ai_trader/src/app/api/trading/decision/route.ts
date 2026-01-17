@@ -31,6 +31,20 @@ export async function POST(): Promise<NextResponse<AIDecision>> {
     const filteredData = marketData.filter((m) => m.liquidityUSD > minLiquidity);
     console.log(`[${new Date().toISOString()}] Filtered to ${filteredData.length} coins with liquidity > $${minLiquidity.toLocaleString()}`);
 
+    // Check if we have any market data before calling AI
+    const dataToUse = filteredData.length > 0 ? filteredData : marketData.slice(0, 10);
+    
+    if (dataToUse.length === 0) {
+      console.warn(`[${new Date().toISOString()}] ⚠️ No market data available - skipping AI call to save tokens`);
+      return NextResponse.json({
+        action: 'WAIT',
+        reasoning: 'No market data available from Binance API. Waiting for data to become available before making trading decisions.',
+        confidence: 0,
+        chainOfThought: 'Market data fetch failed for all symbols',
+        aiAgent: 'System',
+      });
+    }
+
     const performanceMetrics: PerformanceMetrics = {
       totalTrades: 0,
       winRate: 0.5,
@@ -42,11 +56,11 @@ export async function POST(): Promise<NextResponse<AIDecision>> {
       worstPerformingAssets: [],
     };
 
-    console.log(`[${new Date().toISOString()}] Calling AI service...`);
+    console.log(`[${new Date().toISOString()}] Calling AI service with ${dataToUse.length} symbols...`);
     const decision = await aiService.getTradeDecision(
       accountStatus,
       positions,
-      filteredData.length > 0 ? filteredData : marketData.slice(0, 10), // Use top 10 if filtering removes all
+      dataToUse,
       performanceMetrics
     );
 

@@ -1,0 +1,17 @@
+# Railway Configuration - AI Trader
+# Deploy both Web UI and Background Worker
+
+# Build settings
+[build]
+builder = "nixpacks"
+
+# Web UI Service
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+
+# For background worker, create a separate service in Railway
+# and use this start command:
+# node standalone/index.js

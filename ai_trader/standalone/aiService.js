@@ -1,48 +1,39 @@
-// AI Service - Integration with OpenRouter or RapidAPI
+// AI Service - Standalone Version
+// Integration with OpenRouter or CLIProxyAPI
 
-import type { AIDecision, MarketData, Position, PerformanceMetrics, AccountStatus } from '@/lib/types';
-
-export class AIService {
-  private providers: Array<{
-    name: string;
-    apiKey: string;
-    baseURL: string;
-    model: string;
-  }>;
-  private currentProviderIndex: number = 0;
-
-  constructor() {
+class AIService {
+  constructor(config = {}) {
     // Initialize provider queue: Claude -> Gemini Pro -> OpenRouter -> RapidAPI -> Gemini Flash
     this.providers = [
       {
         name: 'CLIProxyAPI (Claude)',
-        apiKey: process.env.CLI_PROXYAPI_API_KEY || '',
-        baseURL: process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
-        model: process.env.CLI_PROXYAPI_MODEL || 'gemini-claude-sonnet-4-5',
+        apiKey: config.cliProxyApiKey || process.env.CLI_PROXYAPI_API_KEY || '',
+        baseURL: config.cliProxyBaseUrl || process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
+        model: config.cliProxyModel || process.env.CLI_PROXYAPI_MODEL || 'gemini-claude-sonnet-4-5',
       },
       {
         name: 'CLIProxyAPI (Gemini Pro)',
-        apiKey: process.env.CLI_PROXYAPI_API_KEY || '',
-        baseURL: process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
-        model: process.env.CLI_PROXYAPI_GEMINI_PRO_MODEL || 'gemini-2.5-pro',
+        apiKey: config.cliProxyApiKey || process.env.CLI_PROXYAPI_API_KEY || '',
+        baseURL: config.cliProxyBaseUrl || process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
+        model: config.cliProxyGeminiProModel || process.env.CLI_PROXYAPI_GEMINI_PRO_MODEL || 'gemini-2.5-pro',
       },
       {
         name: 'OpenRouter',
-        apiKey: process.env.OPENROUTER_API_KEY || '',
-        baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
-        model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+        apiKey: config.openRouterApiKey || process.env.OPENROUTER_API_KEY || '',
+        baseURL: config.openRouterBaseUrl || process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+        model: config.openRouterModel || process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
       },
       {
         name: 'RapidAPI',
-        apiKey: process.env.RAPIDAPI_KEY || '',
+        apiKey: config.rapidApiKey || process.env.RAPIDAPI_KEY || '',
         baseURL: 'https://chatgpt-api8.p.rapidapi.com/',
         model: 'ChatGPT',
       },
       {
         name: 'CLIProxyAPI (Gemini Flash)',
-        apiKey: process.env.CLI_PROXYAPI_API_KEY || '',
-        baseURL: process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
-        model: process.env.CLI_PROXYAPI_GEMINI_FLASH_MODEL || 'gemini-2.5-flash',
+        apiKey: config.cliProxyApiKey || process.env.CLI_PROXYAPI_API_KEY || '',
+        baseURL: config.cliProxyBaseUrl || process.env.CLI_PROXYAPI_BASE_URL || 'http://localhost:8317/v1',
+        model: config.cliProxyGeminiFlashModel || process.env.CLI_PROXYAPI_GEMINI_FLASH_MODEL || 'gemini-2.5-flash',
       },
     ].filter(p => p.apiKey); // Only include providers with API keys
 
@@ -50,12 +41,7 @@ export class AIService {
       this.providers.map(p => p.name).join(' -> '));
   }
 
-  async getTradeDecision(
-    accountStatus: AccountStatus,
-    positions: Position[],
-    marketData: MarketData[],
-    performanceMetrics: PerformanceMetrics
-  ): Promise<AIDecision> {
+  async getTradeDecision(accountStatus, positions, marketData, performanceMetrics) {
     const prompt = this.buildPrompt(accountStatus, positions, marketData, performanceMetrics);
 
     console.log(`\n[${new Date().toISOString()}] ===== AI REQUEST =====`);
@@ -110,12 +96,7 @@ export class AIService {
     };
   }
 
-  private buildPrompt(
-    accountStatus: AccountStatus,
-    positions: Position[],
-    marketData: MarketData[],
-    performanceMetrics: PerformanceMetrics
-  ): string {
+  buildPrompt(accountStatus, positions, marketData, performanceMetrics) {
     // Sort by volume and liquidity for best opportunities
     const sortedData = [...marketData]
       .sort((a, b) => b.volume24h - a.volume24h)
@@ -190,7 +171,7 @@ MULTIPLE DECISIONS (use when beneficial):
 }`;
   }
 
-  private async callAI(prompt: string, provider: { name: string; apiKey: string; baseURL: string; model: string }): Promise<string> {
+  async callAI(prompt, provider) {
     if (provider.name === 'RapidAPI') {
       return await this.callRapidAPI(prompt, provider);
     } else {
@@ -198,7 +179,7 @@ MULTIPLE DECISIONS (use when beneficial):
     }
   }
 
-  private async callOpenRouterCompatible(prompt: string, provider: { name: string; apiKey: string; baseURL: string; model: string }): Promise<string> {
+  async callOpenRouterCompatible(prompt, provider) {
     const requestBody = {
       model: provider.model,
       messages: [
@@ -243,7 +224,7 @@ MULTIPLE DECISIONS (use when beneficial):
         throw new Error(`${provider.name} API error (${response.status}): ${errorText}`);
       }
 
-      const data = await response.json() as any;
+      const data = await response.json();
       console.log(`${provider.name} response structure:`, JSON.stringify(data, null, 2));
 
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
@@ -280,7 +261,7 @@ MULTIPLE DECISIONS (use when beneficial):
     }
   }
 
-  private async callRapidAPI(prompt: string, provider: { name: string; apiKey: string; baseURL: string; model: string }): Promise<string> {
+  async callRapidAPI(prompt, provider) {
     console.log(`[${new Date().toISOString()}] Calling RapidAPI...`);
 
     const response = await fetch(provider.baseURL, {
@@ -313,7 +294,7 @@ MULTIPLE DECISIONS (use when beneficial):
     return data;
   }
 
-  private parseDecision(response: string, modelName: string): AIDecision {
+  parseDecision(response, modelName) {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -349,7 +330,7 @@ MULTIPLE DECISIONS (use when beneficial):
           confidence: parsed.confidence || 0.5,
           chainOfThought: response,
           aiAgent: modelName,
-          decisions: sortedDecisions.map((d: any) => ({
+          decisions: sortedDecisions.map((d) => ({
             action: d.action,
             symbol: d.symbol,
             quantity: d.quantity,
@@ -391,4 +372,4 @@ MULTIPLE DECISIONS (use when beneficial):
   }
 }
 
-export const aiService = new AIService();
+module.exports = { AIService };
