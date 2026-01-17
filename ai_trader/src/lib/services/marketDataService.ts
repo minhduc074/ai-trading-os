@@ -64,33 +64,29 @@ export class MarketDataService {
 
   async getDefaultCoinPool(): Promise<string[]> {
     // Top major coins
-    return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'MATICUSDT', 'LINKUSDT', 'AVAXUSDT'];
+    return [
+      'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 
+      'ADAUSDT', 'DOGEUSDT', 'MATICUSDT', 'LINKUSDT', 'AVAXUSDT',
+      'DOTUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT', 'ATOMUSDT',
+      'XLMUSDT', 'NEARUSDT', 'APTUSDT', 'ARBUSDT', 'OPUSDT',
+      'TRXUSDT', 'ICPUSDT', 'WLDUSDT', 'PEPEUSDT', 'RENDERUSDT'
+    ];
   }
 
   async getTopCoins(): Promise<string[]> {
     // Fetch top coins by various metrics
     // This is a simplified version - in real implementation, use CoinGecko or similar
     return [
-      'BTCUSDT',
-      'ETHUSDT',
-      'BNBUSDT',
-      'SOLUSDT',
-      'XRPUSDT',
-      'ADAUSDT',
-      'DOGEUSDT',
-      'MATICUSDT',
-      'LTCUSDT',
-      'BCHUSDT',
-      'LINKUSDT',
-      'UNIUSDT',
-      'XLMUSDT',
-      'DOTUSDT',
-      'TRXUSDT',
-      'ATOMUSDT',
-      'FILUSDT',
-      'ETCUSDT',
-      'NEARUSDT',
-      'FTMUSDT',
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+      'ADAUSDT', 'DOGEUSDT', 'MATICUSDT', 'LTCUSDT', 'BCHUSDT',
+      'LINKUSDT', 'UNIUSDT', 'XLMUSDT', 'DOTUSDT', 'TRXUSDT',
+      'ATOMUSDT', 'FILUSDT', 'ETCUSDT', 'NEARUSDT', 'FTMUSDT',
+      'AVAXUSDT', 'ICPUSDT', 'APTUSDT', 'ARBUSDT', 'OPUSDT',
+      'SUIUSDT', 'INJUSDT', 'WLDUSDT', 'SEIUSDT', 'TIAUSDT',
+      'JUPUSDT', 'STXUSDT', 'RNDRUSDT', 'TAOUSDT', 'PENDLEUSDT',
+      'RUNEUSDT', 'POLUSDT', 'PYTHUSDT', 'DYMUSDT', 'WIFUSDT',
+      'PEPEUSDT', 'SHIBUSDT', 'FLOKIUSDT', 'BONKUSDT', 'ORDIUSDT',
+      'AAVEUSDT', 'MKRUSDT', 'LDOUSDT', 'GMXUSDT', 'GRTUSDT',
     ];
   }
 }
