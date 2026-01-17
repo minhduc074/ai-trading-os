@@ -43,6 +43,11 @@ export class AIService {
     marketData: MarketData[],
     performanceMetrics: PerformanceMetrics
   ): string {
+    // Sort by volume and liquidity for best opportunities
+    const sortedData = [...marketData]
+      .sort((a, b) => b.volume24h - a.volume24h)
+      .slice(0, 10);
+
     return `You are an expert crypto futures trading AI. Analyze the following market data and account status, then provide a trading decision.
 
 ## Account Status
@@ -53,7 +58,7 @@ export class AIService {
 - Daily PnL: $${accountStatus.dailyPnL.toFixed(2)}
 
 ## Current Positions (${positions.length})
-${positions.map((p) => `- ${p.symbol} ${p.side}: ${p.quantity} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnLPercent.toFixed(2)}%)`).join('\n')}
+${positions.length > 0 ? positions.map((p) => `- ${p.symbol} ${p.side}: ${p.quantity} @ $${p.entryPrice.toFixed(2)} (PnL: ${p.unrealizedPnLPercent.toFixed(2)}%)`).join('\n') : '- No open positions'}
 
 ## Recent Performance
 - Win Rate: ${(performanceMetrics.winRate * 100).toFixed(2)}%
@@ -62,12 +67,22 @@ ${positions.map((p) => `- ${p.symbol} ${p.side}: ${p.quantity} @ $${p.entryPrice
 - Sharpe Ratio: ${performanceMetrics.sharpeRatio.toFixed(2)}
 - Max Drawdown: ${performanceMetrics.maxDrawdown.toFixed(2)}%
 
-## Top Opportunities
-${marketData
-  .sort((a, b) => b.liquidityUSD - a.liquidityUSD)
-  .slice(0, 5)
-  .map((m) => `- ${m.symbol}: Price $${m.currentPrice.toFixed(2)}, RSI14: ${m.rsi14.toFixed(2)}, Volume: $${m.volume24h.toFixed(0)}`)
-  .join('\n')}
+## Top Market Opportunities (${sortedData.length} analyzed)
+${sortedData.map((m) => {
+  const rsiSignal = m.rsi14 < 30 ? '🟢 OVERSOLD' : m.rsi14 > 70 ? '🔴 OVERBOUGHT' : '⚪ NEUTRAL';
+  const trendSignal = m.currentPrice > m.ema20_3m ? '📈 UPTREND' : '📉 DOWNTREND';
+  const macdSignal = m.histogram > 0 ? '🟢 BULLISH' : '🔴 BEARISH';
+  
+  return `
+### ${m.symbol}
+- Price: $${m.currentPrice.toFixed(4)} (24h: ${m.priceChange24h > 0 ? '+' : ''}${m.priceChange24h.toFixed(2)}%)
+- Volume 24h: $${(m.volume24h / 1000000).toFixed(2)}M | Liquidity: $${(m.liquidityUSD / 1000000).toFixed(2)}M
+- RSI(14): ${m.rsi14.toFixed(1)} ${rsiSignal} | RSI(7): ${m.rsi7.toFixed(1)}
+- Trend: ${trendSignal} (Price vs EMA20: ${((m.currentPrice / m.ema20_3m - 1) * 100).toFixed(2)}%)
+- MACD: ${m.macd.toFixed(4)} | Histogram: ${m.histogram.toFixed(4)} ${macdSignal}
+- ATR: $${m.atr.toFixed(4)} (Volatility) | Funding: ${(m.fundingRate * 100).toFixed(4)}%
+`;
+}).join('\n')}
 
 ## Decision Criteria
 1. Only open new positions if total margin usage stays below 90%
@@ -75,6 +90,9 @@ ${marketData
 3. Close positions with high unrealized gains (>10%) to lock profit
 4. Avoid repeating bad trades from recent losing patterns
 5. Prioritize closing over opening when margin is high
+6. Look for confluence: RSI oversold/overbought + trend alignment + MACD confirmation
+7. Use ATR for stop loss calculation (typically 1.5-2x ATR)
+8. Consider funding rates - avoid high funding costs
 
 Provide a JSON response with:
 {
@@ -84,7 +102,7 @@ Provide a JSON response with:
   "leverage": 5 (if applicable),
   "stopLoss": 45000 (if applicable),
   "takeProfit": 55000 (if applicable),
-  "reasoning": "Detailed explanation",
+  "reasoning": "Detailed explanation with technical analysis",
   "confidence": 0.85
 }`;
   }
