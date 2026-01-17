@@ -12,7 +12,7 @@ export class AIService {
     this.provider = process.env.AI_PROVIDER || 'openrouter';
     this.apiKey = process.env.OPENROUTER_API_KEY || '';
     this.baseURL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-    this.model = process.env.AI_MODEL || 'openai/gpt-4o-mini';
+    this.model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
   }
 
   async getTradeDecision(
@@ -91,7 +91,22 @@ Provide a JSON response with:
 
   private async callAI(prompt: string): Promise<string> {
     if (this.provider === 'openrouter') {
-      return await this.callOpenRouter(prompt);
+      try {
+        return await this.callOpenRouter(prompt);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Check if error is rate limit (429) or token-related
+        if (errorMessage.includes('429') || errorMessage.includes('rate limit') || 
+            errorMessage.includes('quota') || errorMessage.includes('token')) {
+          console.warn(`[${new Date().toISOString()}] OpenRouter failed (${errorMessage}). Switching to RapidAPI...`);
+          this.model = 'RapidAPI ChatGPT'; // Update model name for display
+          return await this.callRapidAPI(prompt);
+        }
+        
+        // Re-throw if it's a different error
+        throw error;
+      }
     } else {
       return await this.callRapidAPI(prompt);
     }
@@ -122,7 +137,8 @@ Provide a JSON response with:
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json() as any;
